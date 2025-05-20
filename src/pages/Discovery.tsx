@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { Content, db } from '@/lib/db';
 import ContentCard from '@/components/ContentCard';
 import { useWallet } from '@/contexts/WalletContext';
+import { subscribeToContentAnnouncements } from '@/lib/waku';
+import { toast } from '@/hooks/use-toast';
 
 const Discovery = () => {
   const [latestContent, setLatestContent] = useState<Content[]>([]);
@@ -23,6 +25,44 @@ const Discovery = () => {
     };
 
     loadLatestContent();
+    
+    // Set up Waku subscription to listen for new content announcements
+    const setupWakuSubscription = async () => {
+      await subscribeToContentAnnouncements(async (announcement) => {
+        console.log("Received new content announcement:", announcement);
+        
+        // Check if we already have this content
+        const existingContent = await db.getContent(announcement.cid);
+        
+        if (!existingContent) {
+          // Create a new content object from the announcement
+          const newContent: Content = {
+            id: announcement.cid,
+            title: announcement.title,
+            description: announcement.description,
+            type: announcement.type,
+            url: "", // We don't have the URL yet, it will be fetched when viewing
+            cid: announcement.cid,
+            publisher: announcement.publisher,
+            publishedAt: announcement.publishedAt
+          };
+          
+          // Add to database
+          await db.addContent(newContent);
+          
+          // Update UI
+          setLatestContent(prev => [newContent, ...prev]);
+          
+          // Notify user
+          toast({
+            title: "New Content Available",
+            description: `${newContent.title} has been published to the network.`
+          });
+        }
+      });
+    };
+    
+    setupWakuSubscription();
     
     // Set up a polling mechanism to check for new content
     const intervalId = setInterval(loadLatestContent, 30000); // Check every 30 seconds

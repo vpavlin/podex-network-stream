@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
@@ -6,6 +5,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { Content, db, UserContent } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 import { useCodexApi } from '@/lib/codex';
+import { announceContent } from '@/lib/waku';
 
 const Publish = () => {
   const { address } = useWallet();
@@ -93,6 +93,16 @@ const Publish = () => {
       };
       
       await db.addUserContent(userContent);
+      
+      // Announce the content to the Waku network
+      await announceContent({
+        cid: contentId,
+        title,
+        description,
+        type: contentType,
+        publisher: address,
+        publishedAt: Date.now()
+      });
       
       toast({ 
         title: "Content Published", 
