@@ -5,10 +5,12 @@ import { Content, db, UserInteraction } from '@/lib/db';
 import MediaPlayer from '@/components/MediaPlayer';
 import { useWallet } from '@/contexts/WalletContext';
 import { Heart, Bookmark } from 'lucide-react';
+import { useCodexApi } from '@/lib/codex';
 
 const ContentDetail = () => {
   const { id } = useParams<{ id: string }>(); // This is now the CID
   const { address } = useWallet();
+  const { fetchPodexManifest } = useCodexApi();
   const [content, setContent] = useState<Content | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
@@ -21,7 +23,10 @@ const ContentDetail = () => {
       try {
         setIsLoading(true);
         // Try to get content by CID (which is now the id)
-        const contentData = await db.getContent(id);
+        let contentData = await db.getContent(id);
+        if (!contentData) {
+          contentData = await fetchPodexManifest(id)
+        }
         
         if (contentData) {
           setContent(contentData);

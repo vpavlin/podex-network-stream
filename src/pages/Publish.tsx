@@ -6,6 +6,7 @@ import { Content, db, UserContent } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
 import { useCodexApi } from '@/lib/codex';
 import { announceContent } from '@/lib/waku';
+import { PodexManifest } from '@/lib/types';
 
 const Publish = () => {
   const { address } = useWallet();
@@ -56,8 +57,7 @@ const Publish = () => {
       // Upload to Codex and get CID
       const { cid, url } = await uploadToCodex(file);
       
-      // We'll now use the CID as the primary ID for content
-      const contentId = cid;
+  
       
       let thumbnailUrl = '';
       let thumbnailCid = '';
@@ -66,7 +66,27 @@ const Publish = () => {
         thumbnailUrl = thumbnailUpload.url;
         thumbnailCid = thumbnailUpload.cid;
       }
+
+      const podexManifest:PodexManifest = {
+        title,
+        description,
+        type: contentType,
+        publisher: address,
+        publishedAt: Date.now(),
+        thumbnailCid: thumbnailCid,
+        contentCid: cid,
+      }
+
+      const podexManifestFile = new File([JSON.stringify(podexManifest)], "podexManifest.json", {type: "application/json"})
+      const podexManifestUpload = await uploadToCodex(podexManifestFile)
       
+      // Announce the content to the Waku network
+      const res = await announceContent({...podexManifest, cid: podexManifestUpload.cid})
+
+      if (!res) throw new Error("Failed to publish")
+
+      const contentId = podexManifestUpload.cid
+
       // Create content object
       const contentData: Content = {
         id: contentId, // Use CID as ID
@@ -94,15 +114,9 @@ const Publish = () => {
       
       await db.addUserContent(userContent);
       
-      // Announce the content to the Waku network
-      await announceContent({
-        cid: contentId,
-        title,
-        description,
-        type: contentType,
-        publisher: address,
-        publishedAt: Date.now()
-      });
+
+
+  
       
       toast({ 
         title: "Content Published", 

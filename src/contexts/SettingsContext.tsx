@@ -7,7 +7,7 @@ interface SettingsContextType {
 }
 
 const defaultSettings = {
-  codexApiUrl: 'http://localhost:8080/api/codex/v1',
+  codexApiUrl: 'http://localhost:8080',
 };
 
 const SettingsContext = createContext<SettingsContextType>({

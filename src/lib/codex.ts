@@ -1,5 +1,11 @@
 import { useSettings } from '@/contexts/SettingsContext';
 import { toast } from '@/hooks/use-toast';
+import { Codex } from "@codex-storage/sdk-js";
+import { BrowserUploadStategy } from "@codex-storage/sdk-js/browser";
+import { PodexManifest } from './types';
+import { Content } from './db';
+
+
 
 interface UploadResult {
   cid: string;
@@ -22,36 +28,52 @@ const sanitizeFilename = (filename: string): string => {
 // Utility hook for Codex API functions
 export const useCodexApi = () => {
   const { codexApiUrl } = useSettings();
+  const  codex = new Codex(codexApiUrl)
 
   // Upload content to Codex
   const uploadToCodex = async (file: File): Promise<UploadResult> => {
-    // Create a sanitized filename for the Content-Disposition header
-    const sanitizedFilename = sanitizeFilename(file.name);
-    
-    const formData = new FormData();
-    formData.append('file', file);
+    try {
+      // Create a sanitized filename for the Content-Disposition header
+      const sanitizedFilename = sanitizeFilename(file.name);
 
-    const response = await fetch(`${codexApiUrl}/data`, {
-      method: 'POST',
-      headers: {
-        'Content-Disposition': `attachment; filename="${sanitizedFilename}"`,
-        'Content-Type': file.type,
-      },
-      body: file,
-    });
+      const metadata = { filename: sanitizedFilename, mimetype: file.type };
 
-    if (!response.ok) {
-      throw new Error(`Upload failed: ${response.statusText}`);
+      const stategy = new BrowserUploadStategy(file, undefined, metadata);
+
+      const data = codex.data;
+      const uploadResponse = data.upload(stategy);
+
+      const res = await uploadResponse.result;
+
+      if (res.error) {
+        throw new Error(`${res.error}`);
+      }
+
+      // The API returns plaintext CID, not JSON
+      const cid = res.data as string;
+      
+      return {
+        cid,
+        url: `${codexApiUrl}/data/${cid}/network/stream`,
+      };
+    } catch (e) {
+        throw new Error(`Failed to upload ${file.name}: ${e}`)
+    }
+  };
+
+  const fetchPodexManifest = async (cid: string): Promise<Content> => {
+    const data = codex.data
+    const res = await data.networkDownloadStream(cid)
+
+    if (res.error) {
+      throw new Error(`Failed to fetch Podex manifest: ${res.data}`)
     }
 
-    // The API returns plaintext CID, not JSON
-    const cid = await response.text();
-    
-    return {
-      cid,
-      url: `${codexApiUrl}/data/${cid}/network/stream`,
-    };
-  };
+    const result = res.data as Response
+    const manifest:PodexManifest = await result.json()
+
+    return {...manifest, id: cid, url: getContentStreamUrl(manifest.contentCid)}
+  }
 
   // Check if content exists in the network with rate limiting and retries
   const checkContentAvailability = async (cid: string): Promise<boolean> => {
@@ -72,8 +94,13 @@ export const useCodexApi = () => {
             );
           }
           
-          const response = await fetch(`${codexApiUrl}/data/${cid}/network/manifest`);
-          return response.ok;
+          const data = codex.data
+          const res = await data.fetchManifest(cid)
+          if (res.error) {
+            throw new Error(`Failed to fetch manifest: ${res.data}`)
+          }
+
+          return true
         } catch (error) {
           console.error('Error checking content availability:', error);
           
@@ -102,7 +129,7 @@ export const useCodexApi = () => {
 
   // Get content stream URL
   const getContentStreamUrl = (cid: string): string => {
-    return `${codexApiUrl}/data/${cid}/network/stream`;
+    return `${codexApiUrl}/api/codex/v1/data/${cid}/network/stream`;
   };
 
   // Download content (for liked/watch later) with retry mechanism
@@ -118,16 +145,19 @@ export const useCodexApi = () => {
           );
         }
         
-        const response = await fetch(`${codexApiUrl}/data/${cid}/network`);
-        if (response.ok) {
-          toast({
-            title: "Content Download Started",
-            description: "The content is being downloaded to the node."
-          });
-          return;
-        } else {
-          throw new Error(`Failed to download content: ${response.statusText}`);
+        const data = codex.data
+        const res = await data.networkDownload(cid)
+        if (res.error) {
+          throw new Error(`Failed to fetch manifest: ${res.data}`)
         }
+        
+        
+        toast({
+          title: "Content Download Started",
+          description: "The content is being downloaded to the node."
+        });
+        return;
+        
       } catch (error) {
         console.error('Error downloading content:', error);
         
@@ -150,5 +180,6 @@ export const useCodexApi = () => {
     checkContentAvailability,
     getContentStreamUrl,
     downloadContent,
+    fetchPodexManifest,
   };
 };
