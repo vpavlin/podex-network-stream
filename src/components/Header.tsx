@@ -1,6 +1,7 @@
 
 import { useWallet } from "@/contexts/WalletContext";
 import { Link } from "react-router-dom";
+import { Settings } from "lucide-react";
 
 const Header = () => {
   const { address, isConnecting, connect, disconnect } = useWallet();
@@ -19,7 +20,15 @@ const Header = () => {
           </nav>
         </div>
 
-        <div>
+        <div className="flex items-center space-x-4">
+          <Link 
+            to="/settings" 
+            className="p-2 hover:bg-gray-100 rounded-full"
+            title="Settings"
+          >
+            <Settings size={20} />
+          </Link>
+          
           {address ? (
             <div className="flex items-center space-x-2">
               <span className="text-xs">{address.slice(0, 6)}...{address.slice(-4)}</span>

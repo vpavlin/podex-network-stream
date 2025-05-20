@@ -107,7 +107,7 @@ export const subscribeToContentAnnouncements = async (
     console.log("Subscribing to content announcements...");
     
     // Setup subscription handler
-    wakuDispatcher.on("announce", callback,);
+    wakuDispatcher.on("announce", callback);
     
     return true;
   } catch (error) {
