@@ -44,7 +44,7 @@ export const announceContent = async (contentData: ContentAnnouncement): Promise
     
     // Convert to JSON and publish to Waku
     console.log("Publishing content announcement to Waku:", message);
-    await wakuDispatcher.publish(JSON.stringify(message));
+    await wakuDispatcher.emit(JSON.stringify(message));
     console.log("Content announcement published successfully");
     return true;
   } catch (error) {
@@ -61,7 +61,7 @@ export const subscribeToContentAnnouncements = async (
     console.log("Subscribing to content announcements...");
     
     // Setup subscription handler
-    wakuDispatcher.onMessage((wakuMessage: string) => {
+    wakuDispatcher.on((wakuMessage: string) => {
       try {
         const message = JSON.parse(wakuMessage);
         if (message.type === "content-announcement") {
