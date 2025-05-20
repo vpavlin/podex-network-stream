@@ -1,8 +1,8 @@
 
-import { WakuDispatcher } from "waku-dispatcher";
+import { Dispatcher } from "waku-dispatcher";
 
 // Initialize the Waku Dispatcher
-const wakuDispatcher = new WakuDispatcher();
+const wakuDispatcher = new Dispatcher();
 
 // Define content announcement interface
 interface ContentAnnouncement {
