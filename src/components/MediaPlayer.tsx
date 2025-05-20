@@ -42,7 +42,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
       }
     }
     setIsLoading(false);
-  }, [content.cid, checkContentAvailability]);
+  }, [content.cid]);
 
   // Set the stream URL once when content changes
   useEffect(() => {
@@ -52,7 +52,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
       : content.url;
     
     setStreamUrl(url || '');
-  }, [content.cid, content.url, contentAvailable, getContentStreamUrl]);
+  }, [content.cid, content.url, contentAvailable]);
 
   // Check content availability when component mounts or content changes
   useEffect(() => {
