@@ -1,5 +1,5 @@
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { Content } from '@/lib/db';
 import { useCodexApi } from '@/lib/codex';
 import { toast } from '@/hooks/use-toast';
@@ -15,36 +15,49 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [contentAvailable, setContentAvailable] = useState(true);
+  // Store the stream URL in state to prevent recalculation on every render
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const { checkContentAvailability, getContentStreamUrl } = useCodexApi();
-
-  useEffect(() => {
-    // Check if content is available in the network
-    const verifyContent = async () => {
-      setIsLoading(true);
-      if (content.cid) {
-        try {
-          const isAvailable = await checkContentAvailability(content.cid);
-          if (!isAvailable) {
-            console.warn('Content not available in the network:', content.cid);
-            setContentAvailable(false);
-            toast({
-              title: "Content Unavailable",
-              description: "This content is currently not available on the network."
-            });
-          } else {
-            setContentAvailable(true);
-          }
-        } catch (error) {
-          console.error('Error verifying content:', error);
-          // Continue anyway, we'll try to play from URL if CID fails
+  
+  // Memoize content availability check to prevent unnecessary rerenders
+  const verifyContent = useCallback(async () => {
+    setIsLoading(true);
+    if (content.cid) {
+      try {
+        const isAvailable = await checkContentAvailability(content.cid);
+        if (!isAvailable) {
+          console.warn('Content not available in the network:', content.cid);
+          setContentAvailable(false);
+          toast({
+            title: "Content Unavailable",
+            description: "This content is currently not available on the network."
+          });
+        } else {
+          setContentAvailable(true);
         }
+      } catch (error) {
+        console.error('Error verifying content:', error);
+        // Continue anyway, we'll try to play from URL if CID fails
       }
-      setIsLoading(false);
-    };
+    }
+    setIsLoading(false);
+  }, [content.cid, checkContentAvailability]);
 
+  // Set the stream URL once when content changes
+  useEffect(() => {
+    // Get the stream URL, with fallback to content.url if needed
+    const url = content.cid 
+      ? (contentAvailable ? getContentStreamUrl(content.cid) : content.url) 
+      : content.url;
+    
+    setStreamUrl(url || '');
+  }, [content.cid, content.url, contentAvailable, getContentStreamUrl]);
+
+  // Check content availability when component mounts or content changes
+  useEffect(() => {
     verifyContent();
-  }, [content, checkContentAvailability]);
+  }, [content.id, verifyContent]); // Only re-run when content.id changes
 
   useEffect(() => {
     if (mediaRef.current) {
@@ -74,7 +87,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
         console.error('Media playback error:', e);
         if (content.cid) {
           // If we're using a CID and it fails, try the fallback URL if available
-          if (content.url && content.url !== getContentStreamUrl(content.cid)) {
+          if (content.url && streamUrl !== content.url) {
             toast({
               title: "Playback Error",
               description: "Trying fallback source..."
@@ -104,7 +117,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
         media.removeEventListener('error', handleError);
       };
     }
-  }, [mediaRef, content, getContentStreamUrl, isPlaying]);
+  }, [mediaRef, content, streamUrl, isPlaying]);
 
   const handlePlayPause = () => {
     if (mediaRef.current) {
@@ -136,11 +149,6 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
-  // Get the stream URL, with fallback to content.url if needed
-  const streamUrl = content.cid 
-    ? (contentAvailable ? getContentStreamUrl(content.cid) : content.url) 
-    : content.url;
-
   return (
     <div className="w-full border border-black bg-white">
       {isLoading ? (
@@ -156,7 +164,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
           {content.type === 'video' ? (
             <video
               ref={mediaRef as React.RefObject<HTMLVideoElement>}
-              src={streamUrl}
+              src={streamUrl || ''}
               className="w-full h-full"
               controls={false}
               autoPlay={autoPlay}
@@ -166,7 +174,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
             <div className="w-full h-full flex items-center justify-center">
               <audio
                 ref={mediaRef as React.RefObject<HTMLAudioElement>}
-                src={streamUrl}
+                src={streamUrl || ''}
                 className="hidden"
                 autoPlay={autoPlay}
               />
