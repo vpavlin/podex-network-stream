@@ -28,10 +28,12 @@ export const useCodexApi = () => {
       throw new Error(`Upload failed: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    // The API returns plaintext CID, not JSON
+    const cid = await response.text();
+    
     return {
-      cid: data.cid,
-      url: `${codexApiUrl}/data/${data.cid}/network/stream`,
+      cid,
+      url: `${codexApiUrl}/data/${cid}/network/stream`,
     };
   };
 
