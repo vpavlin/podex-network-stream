@@ -6,7 +6,7 @@ interface SettingsContextType {
   setCodexApiUrl: (url: string) => void;
 }
 
-const defaultSettings = {
+export const defaultSettings = {
   codexApiUrl: 'http://localhost:8080',
 };
 

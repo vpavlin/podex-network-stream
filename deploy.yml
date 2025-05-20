@@ -1,0 +1,32 @@
+---
+version: "2.0"
+services:
+  service1:
+    image: >-
+      quay.io/vpavlin0/podex@sha256:b1ddb55b22eca0abc1da0a090a09d5e1ff94217867531bac4207994810876a44
+    expose:
+      - port: 80
+        as: 80
+        to:
+          - global: true
+profiles:
+  compute:
+    service1:
+      resources:
+        cpu:
+          units: 0.1
+        memory:
+          size: 512Mi
+        storage:
+          - size: 300mi
+  placement:
+    dcloud:
+      pricing:
+        service1:
+          denom: uakt
+          amount: 10000
+deployment:
+  service1:
+    dcloud:
+      profile: service1
+      count: 1

@@ -45,6 +45,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
   // Set the stream URL once when content or availability changes
   useEffect(() => {
     // Get the stream URL, with fallback to content.url if needed
+    console.log(content)
     const url = content.cid 
       ? (contentAvailable ? getContentStreamUrl(content.cid) : content.url) 
       : content.url;

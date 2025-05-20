@@ -102,7 +102,7 @@ const Publish = () => {
       };
       
       // Store in IndexedDB
-      await db.addContent(contentData);
+     // await db.addContent(contentData);
       
       // Create user content record
       const userContent: UserContent = {
@@ -113,10 +113,6 @@ const Publish = () => {
       };
       
       await db.addUserContent(userContent);
-      
-
-
-  
       
       toast({ 
         title: "Content Published", 

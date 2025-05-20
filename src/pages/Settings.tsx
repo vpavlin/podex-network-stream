@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { useSettings } from '@/contexts/SettingsContext';
+import { defaultSettings, useSettings } from '@/contexts/SettingsContext';
 import { toast } from '@/hooks/use-toast';
 
 const Settings = () => {
@@ -32,7 +32,7 @@ const Settings = () => {
             className="w-full p-2 border border-black"
           />
           <p className="text-sm text-gray-600 mt-1">
-            The base URL for the Codex API (default: http://localhost:8080/api/codex/v1)
+            The base URL for the Codex API (default: {defaultSettings.codexApiUrl})
           </p>
         </div>
         

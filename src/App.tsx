@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { WalletProvider } from "./contexts/WalletContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { useEffect } from "react";
-import { initWaku } from "./lib/waku";
+import { getDispatcher } from "./lib/waku";
 
 // Pages
 import Index from "./pages/Index";
@@ -38,7 +38,7 @@ const App = () => {
   // Initialize Waku when the app starts
   useEffect(() => {
     const setupWaku = async () => {
-      await initWaku();
+      await getDispatcher();
     };
     setupWaku();
   }, []);

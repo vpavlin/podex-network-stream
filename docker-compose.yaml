@@ -1,0 +1,31 @@
+services:
+  # Codex Node
+  codex:
+    image: codexstorage/nim-codex:0.2.2
+    command:
+      - codex
+      - --bootstrap-node=spr:CiUIAhIhAiJvIcA_ZwPZ9ugVKDbmqwhJZaig5zKyLiuaicRcCGqLEgIDARo8CicAJQgCEiECIm8hwD9nA9n26BUoNuarCEllqKDnMrIuK5qJxFwIaosQ3d6esAYaCwoJBJ_f8zKRAnU6KkYwRAIgM0MvWNJL296kJ9gWvfatfmVvT-A7O2s8Mxp8l9c8EW0CIC-h-H-jBVSgFjg3Eny2u33qF7BDnWFzo7fGfZ7_qc9P
+      - --log-level=DEBUG
+      - --api-cors-origin=*
+    environment:
+      - CODEX_DATA_DIR=/data
+      - CODEX_API_PORT=8080
+      - CODEX_API_BINDADDR=0.0.0.0
+      - CODEX_LISTEN_ADDRS=/ip4/0.0.0.0/tcp/8070
+      - CODEX_DISC_PORT=8090
+      - NAT_PUBLIC_IP_AUTO=https://ip.codex.storage
+      - CODEX_ETH_PROVIDER=https://rpc.testnet.codex.storage/
+      - CODEX_VALIDATOR=false
+      - PRIV_KEY=${PRIV_KEY}
+      - CODEX_BLOCK_TTL=30d
+    ports:
+      - 127.0.0.1:8085:8080/tcp # API
+      - 8090:8090/udp # Discovery
+      - 8070:8070/tcp # Transport
+    volumes:
+      - ./codex-data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: 100m
+        max-file: 5
