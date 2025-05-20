@@ -3,6 +3,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { Content } from '@/lib/db';
 import { useCodexApi } from '@/lib/codex';
 import { toast } from '@/hooks/use-toast';
+import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 
 interface MediaPlayerProps {
   content: Content;
@@ -15,8 +16,9 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [contentAvailable, setContentAvailable] = useState(true);
-  // Store the stream URL in state to prevent recalculation on every render
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const { checkContentAvailability, getContentStreamUrl } = useCodexApi();
   
@@ -42,7 +44,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
       }
     }
     setIsLoading(false);
-  }, [content.cid]);
+  }, [content.cid, checkContentAvailability]);
 
   // Set the stream URL once when content changes
   useEffect(() => {
@@ -52,7 +54,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
       : content.url;
     
     setStreamUrl(url || '');
-  }, [content.cid, content.url, contentAvailable]);
+  }, [content.cid, content.url, contentAvailable, getContentStreamUrl]);
 
   // Check content availability when component mounts or content changes
   useEffect(() => {
@@ -120,18 +122,18 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
   }, [mediaRef, content, streamUrl, isPlaying]);
 
   const handlePlayPause = () => {
-    if (mediaRef.current) {
-      if (isPlaying) {
-        mediaRef.current.pause();
-      } else {
-        mediaRef.current.play().catch(error => {
-          console.error('Error playing media:', error);
-          toast({
-            title: "Playback Error",
-            description: "Could not play the content. Please try again later."
-          });
+    if (!mediaRef.current) return;
+    
+    if (isPlaying) {
+      mediaRef.current.pause();
+    } else {
+      mediaRef.current.play().catch(error => {
+        console.error('Error playing media:', error);
+        toast({
+          title: "Playback Error",
+          description: "Could not play the content. Please try again later."
         });
-      }
+      });
     }
   };
 
@@ -140,6 +142,34 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
     if (mediaRef.current) {
       mediaRef.current.currentTime = seekTime;
       setCurrentTime(seekTime);
+    }
+  };
+
+  const toggleMute = () => {
+    if (!mediaRef.current) return;
+    
+    if (isMuted) {
+      mediaRef.current.muted = false;
+      mediaRef.current.volume = volume;
+      setIsMuted(false);
+    } else {
+      mediaRef.current.muted = true;
+      setIsMuted(true);
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    if (mediaRef.current) {
+      mediaRef.current.volume = newVolume;
+      setVolume(newVolume);
+      if (newVolume === 0) {
+        mediaRef.current.muted = true;
+        setIsMuted(true);
+      } else if (isMuted) {
+        mediaRef.current.muted = false;
+        setIsMuted(false);
+      }
     }
   };
 
@@ -188,14 +218,15 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
         <div className="flex items-center space-x-4 mb-2">
           <button 
             onClick={handlePlayPause} 
-            className="border border-black w-8 h-8 flex items-center justify-center"
+            className="border border-black w-10 h-10 flex items-center justify-center rounded-full bg-white hover:bg-gray-100"
             disabled={isLoading || (!contentAvailable && !content.url)}
+            aria-label={isPlaying ? "Pause" : "Play"}
           >
-            {isPlaying ? '❚❚' : '▶'}
+            {isPlaying ? <Pause size={20} /> : <Play size={20} />}
           </button>
           
           <div className="w-full flex-1 flex items-center space-x-2">
-            <span className="text-xs">{formatTime(currentTime)}</span>
+            <span className="text-xs font-mono">{formatTime(currentTime)}</span>
             <input
               type="range"
               value={currentTime}
@@ -203,10 +234,31 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
               max={duration || 0}
               step={0.1}
               onChange={handleSeek}
-              className="w-full h-1 bg-gray-200 appearance-none"
+              className="w-full h-2 bg-gray-200 rounded-full appearance-none cursor-pointer"
               disabled={isLoading || (!contentAvailable && !content.url)}
+              aria-label="Seek"
             />
-            <span className="text-xs">{formatTime(duration)}</span>
+            <span className="text-xs font-mono">{formatTime(duration)}</span>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={toggleMute}
+              className="p-2 hover:bg-gray-100 rounded-full"
+              aria-label={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+            </button>
+            <input
+              type="range"
+              value={isMuted ? 0 : volume}
+              min={0}
+              max={1}
+              step={0.1}
+              onChange={handleVolumeChange}
+              className="w-16 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer"
+              aria-label="Volume"
+            />
           </div>
         </div>
       </div>
