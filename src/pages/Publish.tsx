@@ -53,11 +53,11 @@ const Publish = () => {
     try {
       setIsUploading(true);
       
-      // Generate content ID
-      const contentId = uuidv4();
-      
-      // Upload to Codex
+      // Upload to Codex and get CID
       const { cid, url } = await uploadToCodex(file);
+      
+      // We'll now use the CID as the primary ID for content
+      const contentId = cid;
       
       let thumbnailUrl = '';
       let thumbnailCid = '';
@@ -69,12 +69,12 @@ const Publish = () => {
       
       // Create content object
       const contentData: Content = {
-        id: contentId,
+        id: contentId, // Use CID as ID
         title,
         description,
         type: contentType,
         url,
-        cid, // Store the CID for future reference
+        cid, // This will be the same as id now
         thumbnail: thumbnailUrl,
         thumbnailCid: thumbnailCid,
         publisher: address,
@@ -86,8 +86,8 @@ const Publish = () => {
       
       // Create user content record
       const userContent: UserContent = {
-        id: uuidv4(),
-        contentId,
+        id: uuidv4(), // Still use UUID for the user content record
+        contentId, // Reference the content by its CID
         status: 'published',
         uploadedAt: Date.now()
       };
@@ -99,7 +99,7 @@ const Publish = () => {
         description: "Your content has been successfully published to the decentralized network." 
       });
       
-      // Navigate to the content page
+      // Navigate to the content page using CID
       navigate(`/content/${contentId}`);
       
     } catch (error) {

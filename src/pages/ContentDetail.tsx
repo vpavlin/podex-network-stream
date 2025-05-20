@@ -7,7 +7,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { Heart, Bookmark } from 'lucide-react';
 
 const ContentDetail = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>(); // This is now the CID
   const { address } = useWallet();
   const [content, setContent] = useState<Content | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,6 +20,7 @@ const ContentDetail = () => {
       
       try {
         setIsLoading(true);
+        // Try to get content by CID (which is now the id)
         const contentData = await db.getContent(id);
         
         if (contentData) {

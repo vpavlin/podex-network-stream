@@ -76,6 +76,7 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
     ? `${content.description.substring(0, 97)}...` 
     : content.description;
 
+  // Now using content.id (which is the CID) for the link
   return (
     <Link to={`/content/${content.id}`} className="block border border-black hover:bg-gray-50">
       <div className="aspect-video bg-gray-100 relative">
