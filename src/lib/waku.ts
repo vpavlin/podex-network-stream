@@ -1,9 +1,6 @@
 
 import { Dispatcher } from "waku-dispatcher";
 
-// Initialize the Waku Dispatcher
-const wakuDispatcher = new Dispatcher();
-
 // Define content announcement interface
 interface ContentAnnouncement {
   cid: string;
@@ -14,11 +11,19 @@ interface ContentAnnouncement {
   publishedAt: number;
 }
 
+// Create Waku Dispatcher with required parameters
+const wakuDispatcher = new Dispatcher(
+  "podex", // Application name
+  "content-sharing", // Content topic
+  "1", // Protocol version
+  true // Debug mode
+);
+
 // Initialize Waku - this should be called during app startup
 export const initWaku = async () => {
   try {
     console.log("Initializing Waku...");
-    await wakuDispatcher.init();
+    // The Dispatcher is initialized on creation, no need for separate init() call
     console.log("Waku initialized successfully");
     return true;
   } catch (error) {
@@ -30,11 +35,6 @@ export const initWaku = async () => {
 // Publish content announcement to the network
 export const announceContent = async (contentData: ContentAnnouncement): Promise<boolean> => {
   try {
-    if (!wakuDispatcher.isReady()) {
-      console.log("Waku not ready, initializing...");
-      await initWaku();
-    }
-    
     // Create the content announcement message
     const message = {
       type: "content-announcement",
@@ -44,7 +44,7 @@ export const announceContent = async (contentData: ContentAnnouncement): Promise
     
     // Convert to JSON and publish to Waku
     console.log("Publishing content announcement to Waku:", message);
-    await wakuDispatcher.send(JSON.stringify(message), "/podex/content-announcements/1");
+    await wakuDispatcher.publish(JSON.stringify(message));
     console.log("Content announcement published successfully");
     return true;
   } catch (error) {
@@ -58,26 +58,20 @@ export const subscribeToContentAnnouncements = async (
   callback: (announcement: ContentAnnouncement) => void
 ) => {
   try {
-    if (!wakuDispatcher.isReady()) {
-      console.log("Waku not ready, initializing...");
-      await initWaku();
-    }
-    
     console.log("Subscribing to content announcements...");
-    wakuDispatcher.subscribe(
-      "/podex/content-announcements/1",
-      (wakuMessage: string) => {
-        try {
-          const message = JSON.parse(wakuMessage);
-          if (message.type === "content-announcement") {
-            console.log("Received content announcement:", message.data);
-            callback(message.data);
-          }
-        } catch (error) {
-          console.error("Error processing content announcement:", error);
+    
+    // Setup subscription handler
+    wakuDispatcher.onMessage((wakuMessage: string) => {
+      try {
+        const message = JSON.parse(wakuMessage);
+        if (message.type === "content-announcement") {
+          console.log("Received content announcement:", message.data);
+          callback(message.data);
         }
+      } catch (error) {
+        console.error("Error processing content announcement:", error);
       }
-    );
+    });
     
     return true;
   } catch (error) {
