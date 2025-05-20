@@ -5,10 +5,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { useWallet } from '@/contexts/WalletContext';
 import { Content, db, UserContent } from '@/lib/db';
 import { toast } from '@/hooks/use-toast';
+import { useCodexApi } from '@/lib/codex';
 
 const Publish = () => {
   const { address } = useWallet();
   const navigate = useNavigate();
+  const { uploadToCodex } = useCodexApi();
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -54,13 +56,15 @@ const Publish = () => {
       // Generate content ID
       const contentId = uuidv4();
       
-      // In a real application, we would upload the file to a decentralized storage network
-      // For demonstration purposes, we'll create an object URL
-      const contentUrl = URL.createObjectURL(file);
+      // Upload to Codex
+      const { cid, url } = await uploadToCodex(file);
       
       let thumbnailUrl = '';
+      let thumbnailCid = '';
       if (thumbnail) {
-        thumbnailUrl = URL.createObjectURL(thumbnail);
+        const thumbnailUpload = await uploadToCodex(thumbnail);
+        thumbnailUrl = thumbnailUpload.url;
+        thumbnailCid = thumbnailUpload.cid;
       }
       
       // Create content object
@@ -69,8 +73,10 @@ const Publish = () => {
         title,
         description,
         type: contentType,
-        url: contentUrl,
+        url,
+        cid, // Store the CID for future reference
         thumbnail: thumbnailUrl,
+        thumbnailCid: thumbnailCid,
         publisher: address,
         publishedAt: Date.now()
       };
@@ -90,7 +96,7 @@ const Publish = () => {
       
       toast({ 
         title: "Content Published", 
-        description: "Your content has been successfully published." 
+        description: "Your content has been successfully published to the decentralized network." 
       });
       
       // Navigate to the content page

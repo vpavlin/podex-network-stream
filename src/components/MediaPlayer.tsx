@@ -1,6 +1,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { Content } from '@/lib/db';
+import { useCodexApi } from '@/lib/codex';
 
 interface MediaPlayerProps {
   content: Content;
@@ -11,7 +12,25 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
+  const { checkContentAvailability, getContentStreamUrl } = useCodexApi();
+
+  useEffect(() => {
+    // Check if content is available in the network
+    const verifyContent = async () => {
+      setIsLoading(true);
+      if (content.cid) {
+        const isAvailable = await checkContentAvailability(content.cid);
+        if (!isAvailable) {
+          console.warn('Content not available in the network:', content.cid);
+        }
+      }
+      setIsLoading(false);
+    };
+
+    verifyContent();
+  }, [content, checkContentAvailability]);
 
   useEffect(() => {
     if (mediaRef.current) {
@@ -79,36 +98,46 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
+  // Get the stream URL
+  const streamUrl = content.cid ? getContentStreamUrl(content.cid) : content.url;
+
   return (
     <div className="w-full border border-black bg-white">
-      <div className="w-full aspect-video bg-black">
-        {content.type === 'video' ? (
-          <video
-            ref={mediaRef as React.RefObject<HTMLVideoElement>}
-            src={content.url}
-            className="w-full h-full"
-            controls={false}
-            autoPlay={autoPlay}
-            poster={content.thumbnail}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <audio
-              ref={mediaRef as React.RefObject<HTMLAudioElement>}
-              src={content.url}
-              className="hidden"
+      {isLoading ? (
+        <div className="w-full aspect-video bg-black flex items-center justify-center text-white">
+          <p>Loading content...</p>
+        </div>
+      ) : (
+        <div className="w-full aspect-video bg-black">
+          {content.type === 'video' ? (
+            <video
+              ref={mediaRef as React.RefObject<HTMLVideoElement>}
+              src={streamUrl}
+              className="w-full h-full"
+              controls={false}
               autoPlay={autoPlay}
+              poster={content.thumbnail}
             />
-            <div className="text-white text-4xl">AUDIO</div>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <audio
+                ref={mediaRef as React.RefObject<HTMLAudioElement>}
+                src={streamUrl}
+                className="hidden"
+                autoPlay={autoPlay}
+              />
+              <div className="text-white text-4xl">AUDIO</div>
+            </div>
+          )}
+        </div>
+      )}
       
       <div className="p-4">
         <div className="flex items-center space-x-4 mb-2">
           <button 
             onClick={handlePlayPause} 
             className="border border-black w-8 h-8 flex items-center justify-center"
+            disabled={isLoading}
           >
             {isPlaying ? '❚❚' : '▶'}
           </button>
@@ -123,6 +152,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
               step={0.1}
               onChange={handleSeek}
               className="w-full h-1 bg-gray-200 appearance-none"
+              disabled={isLoading}
             />
             <span className="text-xs">{formatTime(duration)}</span>
           </div>

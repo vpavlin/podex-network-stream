@@ -1,11 +1,12 @@
-
 export interface Content {
   id: string;
   title: string;
   description: string;
   type: 'audio' | 'video';
   url: string;
+  cid?: string; // Codex Content Identifier
   thumbnail?: string;
+  thumbnailCid?: string; // Thumbnail Codex Content Identifier
   publisher: string;
   publishedAt: number;
   metadata?: Record<string, any>;
