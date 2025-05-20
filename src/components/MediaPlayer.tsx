@@ -1,5 +1,5 @@
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Content } from '@/lib/db';
 import { useCodexApi } from '@/lib/codex';
 import { toast } from '@/hooks/use-toast';
@@ -22,31 +22,33 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const { checkContentAvailability, getContentStreamUrl } = useCodexApi();
   
-  // Memoize content availability check to prevent unnecessary rerenders
-  const verifyContent = useCallback(async () => {
-    setIsLoading(true);
-    if (content.cid) {
-      try {
-        const isAvailable = await checkContentAvailability(content.cid);
-        if (!isAvailable) {
-          console.warn('Content not available in the network:', content.cid);
-          setContentAvailable(false);
-          toast({
-            title: "Content Unavailable",
-            description: "This content is currently not available on the network."
-          });
-        } else {
-          setContentAvailable(true);
+  // Verify content availability when component mounts or content changes
+  useEffect(() => {
+    const verifyContent = async () => {
+      setIsLoading(true);
+      if (content.cid) {
+        try {
+          const isAvailable = await checkContentAvailability(content.cid);
+          setContentAvailable(isAvailable);
+          if (!isAvailable) {
+            console.warn('Content not available in the network:', content.cid);
+            toast({
+              title: "Content Unavailable",
+              description: "This content is currently not available on the network."
+            });
+          }
+        } catch (error) {
+          console.error('Error verifying content:', error);
+          // Continue anyway, we'll try to play from URL if CID fails
         }
-      } catch (error) {
-        console.error('Error verifying content:', error);
-        // Continue anyway, we'll try to play from URL if CID fails
       }
-    }
-    setIsLoading(false);
-  }, [content.cid, checkContentAvailability]);
-
-  // Set the stream URL once when content changes
+      setIsLoading(false);
+    };
+    
+    verifyContent();
+  }, [content.cid, content.id]); // Only re-run when content.id or content.cid changes
+  
+  // Set the stream URL once when content or availability changes
   useEffect(() => {
     // Get the stream URL, with fallback to content.url if needed
     const url = content.cid 
@@ -54,13 +56,9 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
       : content.url;
     
     setStreamUrl(url || '');
-  }, [content.cid, content.url, contentAvailable, getContentStreamUrl]);
+  }, [content.cid, content.url, contentAvailable]);
 
-  // Check content availability when component mounts or content changes
-  useEffect(() => {
-    verifyContent();
-  }, [content.id, verifyContent]); // Only re-run when content.id changes
-
+  // Set up media event listeners
   useEffect(() => {
     if (mediaRef.current) {
       const media = mediaRef.current;
@@ -87,17 +85,14 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
 
       const handleError = (e: Event) => {
         console.error('Media playback error:', e);
-        if (content.cid) {
-          // If we're using a CID and it fails, try the fallback URL if available
-          if (content.url && streamUrl !== content.url) {
-            toast({
-              title: "Playback Error",
-              description: "Trying fallback source..."
-            });
-            media.src = content.url;
-            media.load();
-            if (isPlaying) media.play();
-          }
+        if (content.cid && content.url && streamUrl !== content.url) {
+          toast({
+            title: "Playback Error",
+            description: "Trying fallback source..."
+          });
+          media.src = content.url;
+          media.load();
+          if (isPlaying) media.play().catch(console.error);
         }
       };
       
@@ -119,9 +114,10 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
         media.removeEventListener('error', handleError);
       };
     }
-  }, [mediaRef, content, streamUrl, isPlaying]);
+  }, [mediaRef, streamUrl]); // Only depend on streamUrl, not functions or content object
 
-  const handlePlayPause = () => {
+  // Memoized handlers to prevent recreation on every render
+  const handlePlayPause = useCallback(() => {
     if (!mediaRef.current) return;
     
     if (isPlaying) {
@@ -135,34 +131,37 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
         });
       });
     }
-  };
+  }, [isPlaying]);
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const seekTime = parseFloat(e.target.value);
     if (mediaRef.current) {
       mediaRef.current.currentTime = seekTime;
       setCurrentTime(seekTime);
     }
-  };
+  }, []);
 
-  const toggleMute = () => {
+  const toggleMute = useCallback(() => {
     if (!mediaRef.current) return;
     
-    if (isMuted) {
-      mediaRef.current.muted = false;
-      mediaRef.current.volume = volume;
-      setIsMuted(false);
-    } else {
-      mediaRef.current.muted = true;
-      setIsMuted(true);
-    }
-  };
+    setIsMuted(prevMuted => {
+      const newMutedState = !prevMuted;
+      mediaRef.current!.muted = newMutedState;
+      
+      if (!newMutedState) {
+        mediaRef.current!.volume = volume;
+      }
+      
+      return newMutedState;
+    });
+  }, [volume]);
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
     if (mediaRef.current) {
       mediaRef.current.volume = newVolume;
       setVolume(newVolume);
+      
       if (newVolume === 0) {
         mediaRef.current.muted = true;
         setIsMuted(true);
@@ -171,13 +170,16 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
         setIsMuted(false);
       }
     }
-  };
+  }, [isMuted]);
 
-  const formatTime = (timeInSeconds: number): string => {
-    const minutes = Math.floor(timeInSeconds / 60);
-    const seconds = Math.floor(timeInSeconds % 60);
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-  };
+  // Memoize formatter to prevent recreation
+  const formatTime = useMemo(() => {
+    return (timeInSeconds: number): string => {
+      const minutes = Math.floor(timeInSeconds / 60);
+      const seconds = Math.floor(timeInSeconds % 60);
+      return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    };
+  }, []);
 
   return (
     <div className="w-full border border-black bg-white">
