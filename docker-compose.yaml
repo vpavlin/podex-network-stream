@@ -19,7 +19,7 @@ services:
       - PRIV_KEY=${PRIV_KEY}
       - CODEX_BLOCK_TTL=30d
     ports:
-      - 127.0.0.1:8085:8080/tcp # API
+      - 127.0.0.1:8080:8080/tcp # API
       - 8090:8090/udp # Discovery
       - 8070:8070/tcp # Transport
     volumes:
