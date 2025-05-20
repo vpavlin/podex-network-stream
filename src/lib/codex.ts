@@ -11,19 +11,30 @@ const pendingRequests = new Map<string, Promise<any>>();
 const RETRY_DELAY = 2000; // Base delay between retries in ms
 const MAX_RETRIES = 3;
 
+// Function to sanitize filenames for HTTP headers
+const sanitizeFilename = (filename: string): string => {
+  // Replace non-ASCII characters and keep only safe characters
+  return filename
+    .replace(/[^\x00-\x7F]/g, '') // Remove non-ASCII characters
+    .replace(/[^a-zA-Z0-9_.-]/g, '_'); // Replace other unsafe chars with underscore
+};
+
 // Utility hook for Codex API functions
 export const useCodexApi = () => {
   const { codexApiUrl } = useSettings();
 
   // Upload content to Codex
   const uploadToCodex = async (file: File): Promise<UploadResult> => {
+    // Create a sanitized filename for the Content-Disposition header
+    const sanitizedFilename = sanitizeFilename(file.name);
+    
     const formData = new FormData();
     formData.append('file', file);
 
     const response = await fetch(`${codexApiUrl}/data`, {
       method: 'POST',
       headers: {
-        'Content-Disposition': `attachment; filename="${file.name}"`,
+        'Content-Disposition': `attachment; filename="${sanitizedFilename}"`,
         'Content-Type': file.type,
       },
       body: file,
