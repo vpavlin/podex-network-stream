@@ -2,6 +2,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Content } from '@/lib/db';
 import { useCodexApi } from '@/lib/codex';
+import { toast } from '@/hooks/use-toast';
 
 interface MediaPlayerProps {
   content: Content;
@@ -13,6 +14,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [contentAvailable, setContentAvailable] = useState(true);
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const { checkContentAvailability, getContentStreamUrl } = useCodexApi();
 
@@ -21,9 +23,21 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
     const verifyContent = async () => {
       setIsLoading(true);
       if (content.cid) {
-        const isAvailable = await checkContentAvailability(content.cid);
-        if (!isAvailable) {
-          console.warn('Content not available in the network:', content.cid);
+        try {
+          const isAvailable = await checkContentAvailability(content.cid);
+          if (!isAvailable) {
+            console.warn('Content not available in the network:', content.cid);
+            setContentAvailable(false);
+            toast({
+              title: "Content Unavailable",
+              description: "This content is currently not available on the network."
+            });
+          } else {
+            setContentAvailable(true);
+          }
+        } catch (error) {
+          console.error('Error verifying content:', error);
+          // Continue anyway, we'll try to play from URL if CID fails
         }
       }
       setIsLoading(false);
@@ -55,6 +69,22 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
       const handlePause = () => {
         setIsPlaying(false);
       };
+
+      const handleError = (e: Event) => {
+        console.error('Media playback error:', e);
+        if (content.cid) {
+          // If we're using a CID and it fails, try the fallback URL if available
+          if (content.url && content.url !== getContentStreamUrl(content.cid)) {
+            toast({
+              title: "Playback Error",
+              description: "Trying fallback source..."
+            });
+            media.src = content.url;
+            media.load();
+            if (isPlaying) media.play();
+          }
+        }
+      };
       
       // Set up event listeners
       media.addEventListener('timeupdate', handleTimeUpdate);
@@ -62,6 +92,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
       media.addEventListener('ended', handleEnded);
       media.addEventListener('play', handlePlay);
       media.addEventListener('pause', handlePause);
+      media.addEventListener('error', handleError);
       
       // Clean up
       return () => {
@@ -70,16 +101,23 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
         media.removeEventListener('ended', handleEnded);
         media.removeEventListener('play', handlePlay);
         media.removeEventListener('pause', handlePause);
+        media.removeEventListener('error', handleError);
       };
     }
-  }, [mediaRef]);
+  }, [mediaRef, content, getContentStreamUrl, isPlaying]);
 
   const handlePlayPause = () => {
     if (mediaRef.current) {
       if (isPlaying) {
         mediaRef.current.pause();
       } else {
-        mediaRef.current.play();
+        mediaRef.current.play().catch(error => {
+          console.error('Error playing media:', error);
+          toast({
+            title: "Playback Error",
+            description: "Could not play the content. Please try again later."
+          });
+        });
       }
     }
   };
@@ -98,14 +136,20 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
   };
 
-  // Get the stream URL
-  const streamUrl = content.cid ? getContentStreamUrl(content.cid) : content.url;
+  // Get the stream URL, with fallback to content.url if needed
+  const streamUrl = content.cid 
+    ? (contentAvailable ? getContentStreamUrl(content.cid) : content.url) 
+    : content.url;
 
   return (
     <div className="w-full border border-black bg-white">
       {isLoading ? (
         <div className="w-full aspect-video bg-black flex items-center justify-center text-white">
           <p>Loading content...</p>
+        </div>
+      ) : !contentAvailable && !content.url ? (
+        <div className="w-full aspect-video bg-black flex items-center justify-center text-white">
+          <p>Content currently unavailable</p>
         </div>
       ) : (
         <div className="w-full aspect-video bg-black">
@@ -137,7 +181,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
           <button 
             onClick={handlePlayPause} 
             className="border border-black w-8 h-8 flex items-center justify-center"
-            disabled={isLoading}
+            disabled={isLoading || (!contentAvailable && !content.url)}
           >
             {isPlaying ? '❚❚' : '▶'}
           </button>
@@ -152,7 +196,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ content, autoPlay = false }) 
               step={0.1}
               onChange={handleSeek}
               className="w-full h-1 bg-gray-200 appearance-none"
-              disabled={isLoading}
+              disabled={isLoading || (!contentAvailable && !content.url)}
             />
             <span className="text-xs">{formatTime(duration)}</span>
           </div>
