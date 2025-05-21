@@ -7,34 +7,51 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { UserRoundPlus, X, UserCheck } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const FollowingList: React.FC = () => {
   const [followedAddresses, setFollowedAddresses] = useState<FollowedAddress[]>([]);
   const [newAddress, setNewAddress] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { address: connectedAddress } = useWallet();
 
   // Load followed addresses
   useEffect(() => {
+    let isMounted = true;
+    
     const loadFollowedAddresses = async () => {
       try {
         setIsLoading(true);
         setError(null);
         console.log('Loading followed addresses...');
+        
+        // Wait for a short delay to ensure DB is initialized
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         const addresses = await db.getFollowedAddresses();
+        
+        if (!isMounted) return;
+        
         console.log('Followed addresses loaded:', addresses);
         setFollowedAddresses(addresses);
       } catch (error) {
         console.error('Error loading followed addresses:', error);
+        if (!isMounted) return;
         setError('Failed to load followed addresses. Please try again.');
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadFollowedAddresses();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Follow a new address
@@ -239,9 +256,21 @@ const FollowingList: React.FC = () => {
         <h3 className="font-medium mb-2">Currently Following</h3>
         
         {isLoading ? (
-          <div className="py-4 flex justify-center">Loading followed addresses...</div>
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
         ) : error ? (
-          <div className="text-red-500">{error}</div>
+          <div className="text-red-500 py-2">
+            {error}
+            <Button 
+              onClick={() => window.location.reload()}
+              className="ml-2 border border-black text-sm hover:bg-black hover:text-white"
+            >
+              Retry
+            </Button>
+          </div>
         ) : followedAddresses.length === 0 ? (
           <div className="text-gray-500 py-2">You are not following any addresses yet.</div>
         ) : (

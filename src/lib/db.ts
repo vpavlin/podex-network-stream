@@ -1,3 +1,4 @@
+
 export interface Content {
   id: string;
   title: string;
@@ -35,13 +36,20 @@ export interface FollowedAddress {
 class PodexDatabase {
   private db: IDBDatabase | null = null;
   private dbName = 'podex-db';
-  private version = 3; // Increase version to trigger onupgradeneeded
+  private version = 4; // Increased version to prevent upgrade conflicts
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
-    this.init();
+    // Initialize the database right away
+    this.initPromise = this.init();
   }
 
   async init(): Promise<void> {
+    if (this.db) {
+      // Already initialized
+      return Promise.resolve();
+    }
+
     return new Promise((resolve, reject) => {
       try {
         console.log(`Opening IndexedDB ${this.dbName} with version ${this.version}`);
@@ -397,50 +405,80 @@ class PodexDatabase {
   }
 
   async getFollowedAddresses(): Promise<FollowedAddress[]> {
-    await this.ensureDbReady();
-    
-    return new Promise((resolve, reject) => {
-      try {
-        const transaction = this.db!.transaction('followedAddresses', 'readonly');
-        const store = transaction.objectStore('followedAddresses');
-        const request = store.getAll();
+    try {
+      await this.ensureDbReady();
+      
+      return new Promise((resolve, reject) => {
+        try {
+          // Check if the database has been initialized
+          if (!this.db) {
+            console.log('Database not ready yet, returning empty array');
+            return resolve([]);
+          }
+          
+          // Check if the object store exists
+          if (!this.db.objectStoreNames.contains('followedAddresses')) {
+            console.log('followedAddresses store does not exist yet, returning empty array');
+            return resolve([]);
+          }
+          
+          const transaction = this.db.transaction('followedAddresses', 'readonly');
+          const store = transaction.objectStore('followedAddresses');
+          const request = store.getAll();
 
-        request.onsuccess = () => {
-          console.log('Retrieved followed addresses:', request.result);
-          resolve(request.result || []);
-        };
-        request.onerror = (event) => {
-          console.error("Error in getFollowedAddresses:", (event.target as IDBRequest).error);
-          reject((event.target as IDBRequest).error);
-        };
-      } catch (error) {
-        console.error("Exception in getFollowedAddresses:", error);
-        // If there's an error (e.g., store doesn't exist yet), return empty array
-        resolve([]);
-      }
-    });
+          request.onsuccess = () => {
+            console.log('Retrieved followed addresses:', request.result);
+            resolve(request.result || []);
+          };
+          request.onerror = (event) => {
+            console.error("Error in getFollowedAddresses:", (event.target as IDBRequest).error);
+            // On error, return empty array instead of rejecting
+            resolve([]);
+          };
+        } catch (error) {
+          console.error("Exception in getFollowedAddresses:", error);
+          // If there's an error, return empty array
+          resolve([]);
+        }
+      });
+    } catch (error) {
+      console.error("Outer exception in getFollowedAddresses:", error);
+      // Return empty array if any exception occurs
+      return [];
+    }
   }
 
   async isAddressFollowed(address: string): Promise<boolean> {
-    await this.ensureDbReady();
-    
-    return new Promise((resolve, reject) => {
-      try {
-        const transaction = this.db!.transaction('followedAddresses', 'readonly');
-        const store = transaction.objectStore('followedAddresses');
-        const request = store.get(address.toLowerCase());
+    try {
+      await this.ensureDbReady();
+      
+      return new Promise((resolve) => {
+        try {
+          // Check if the database or store doesn't exist yet
+          if (!this.db || !this.db.objectStoreNames.contains('followedAddresses')) {
+            return resolve(false);
+          }
+          
+          const transaction = this.db.transaction('followedAddresses', 'readonly');
+          const store = transaction.objectStore('followedAddresses');
+          const request = store.get(address.toLowerCase());
 
-        request.onsuccess = () => resolve(!!request.result);
-        request.onerror = (event) => {
-          console.error("Error in isAddressFollowed:", (event.target as IDBRequest).error);
-          reject((event.target as IDBRequest).error);
-        };
-      } catch (error) {
-        console.error("Exception in isAddressFollowed:", error);
-        // If there's an error (e.g., store doesn't exist yet), return false
-        resolve(false);
-      }
-    });
+          request.onsuccess = () => resolve(!!request.result);
+          request.onerror = () => {
+            // On error, return false instead of rejecting
+            resolve(false);
+          };
+        } catch (error) {
+          console.error("Exception in isAddressFollowed:", error);
+          // If there's an error, return false
+          resolve(false);
+        }
+      });
+    } catch (error) {
+      console.error("Outer exception in isAddressFollowed:", error);
+      // Return false if any exception occurs
+      return false;
+    }
   }
 
   async getContentFromFollowedAddresses(): Promise<Content[]> {
@@ -464,11 +502,21 @@ class PodexDatabase {
     }
   }
 
-  // Removing the duplicate getContent method that was causing the error
-
   private async ensureDbReady(): Promise<void> {
+    if (this.initPromise) {
+      // Wait for the initialization to complete
+      await this.initPromise;
+      this.initPromise = null;
+    }
+    
     if (!this.db) {
+      // If database still not ready, try to initialize again
       await this.init();
+    }
+    
+    // If still not ready, throw an error
+    if (!this.db) {
+      throw new Error("Database could not be initialized after multiple attempts");
     }
   }
 }

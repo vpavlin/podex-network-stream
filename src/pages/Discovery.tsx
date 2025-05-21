@@ -7,40 +7,59 @@ import { subscribeToContentAnnouncements } from '@/lib/waku';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { UserRoundPlus, UserCheck, Link } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const Discovery = () => {
   const [latestContent, setLatestContent] = useState<Content[]>([]);
   const [followedContent, setFollowedContent] = useState<Content[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'all' | 'following'>('all');
   const { address } = useWallet();
 
   // Load content based on the current view mode
   useEffect(() => {
+    let isMounted = true;
+    
     const loadContent = async () => {
       try {
         setIsLoading(true);
+        setLoadError(null);
+        
+        // Add a small delay to ensure DB is ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         if (viewMode === 'following') {
           const content = await db.getContentFromFollowedAddresses();
+          if (!isMounted) return;
           setFollowedContent(content);
         } else {
           const content = await db.getLatestContent(20);
+          if (!isMounted) return;
           setLatestContent(content);
         }
       } catch (error) {
         console.error(`Error loading ${viewMode} content:`, error);
+        if (!isMounted) return;
+        setLoadError(`Failed to load ${viewMode} content. Please try again.`);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
     
     loadContent();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [viewMode]);
 
   // Set up real-time content updates
   useEffect(() => {
     // Update UI
-    const processNewAnnounce = async (e) => {
+    const processNewAnnounce = async (e: any) => {
       const newContent = e.detail;
       
       // Check if the publisher of this content is being followed
@@ -176,8 +195,31 @@ const Discovery = () => {
       </div>
       
       {isLoading ? (
-        <div className="w-full flex justify-center items-center py-12">
-          <p>Loading...</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {Array(8).fill(0).map((_, i) => (
+            <div key={i} className="border border-gray-200">
+              <Skeleton className="aspect-video w-full" />
+              <div className="p-4">
+                <Skeleton className="h-6 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-full mb-2" />
+                <Skeleton className="h-4 w-full mb-2" />
+                <div className="flex justify-between">
+                  <Skeleton className="h-3 w-1/3" />
+                  <Skeleton className="h-3 w-1/4" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : loadError ? (
+        <div className="w-full flex flex-col items-center justify-center py-12 border border-black">
+          <p className="text-red-500 mb-4">{loadError}</p>
+          <Button
+            onClick={() => window.location.reload()}
+            className="border border-black px-3 py-1 text-sm hover:bg-black hover:text-white"
+          >
+            Retry
+          </Button>
         </div>
       ) : displayContent.length === 0 ? (
         <div className="w-full flex flex-col items-center justify-center py-12 border border-black">
@@ -196,6 +238,14 @@ const Discovery = () => {
             <>
               <p className="mb-4">No content discovered yet.</p>
               <p className="text-sm text-gray-600">Content will appear here as it becomes available on the network.</p>
+              {process.env.NODE_ENV === 'development' && (
+                <Button 
+                  onClick={addDemoContent}
+                  className="mt-4 border border-black px-3 py-1 text-sm hover:bg-black hover:text-white"
+                >
+                  Add Demo Content
+                </Button>
+              )}
             </>
           )}
         </div>
