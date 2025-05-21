@@ -1,4 +1,3 @@
-
 export interface Content {
   id: string;
   title: string;
@@ -36,7 +35,7 @@ export interface FollowedAddress {
 class PodexDatabase {
   private db: IDBDatabase | null = null;
   private dbName = 'podex-db';
-  private version = 2; // Increase version to trigger onupgradeneeded
+  private version = 3; // Increase version to trigger onupgradeneeded
 
   constructor() {
     this.init();
@@ -44,62 +43,71 @@ class PodexDatabase {
 
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, this.version);
+      try {
+        console.log(`Opening IndexedDB ${this.dbName} with version ${this.version}`);
+        const request = indexedDB.open(this.dbName, this.version);
 
-      request.onupgradeneeded = (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        const oldVersion = event.oldVersion;
-        
-        console.log(`Database upgrade from version ${oldVersion} to ${this.version}`);
+        request.onupgradeneeded = (event) => {
+          const db = (event.target as IDBOpenDBRequest).result;
+          const oldVersion = event.oldVersion;
+          
+          console.log(`Database upgrade from version ${oldVersion} to ${this.version}`);
 
-        // Content store - only create if it doesn't exist
-        if (!db.objectStoreNames.contains('content')) {
-          const contentStore = db.createObjectStore('content', { keyPath: 'id' });
-          contentStore.createIndex('type', 'type', { unique: false });
-          contentStore.createIndex('publisher', 'publisher', { unique: false });
-          contentStore.createIndex('publishedAt', 'publishedAt', { unique: false });
-          console.log('Created content store');
-        }
+          // Content store - only create if it doesn't exist
+          if (!db.objectStoreNames.contains('content')) {
+            const contentStore = db.createObjectStore('content', { keyPath: 'id' });
+            contentStore.createIndex('type', 'type', { unique: false });
+            contentStore.createIndex('publisher', 'publisher', { unique: false });
+            contentStore.createIndex('publishedAt', 'publishedAt', { unique: false });
+            console.log('Created content store');
+          }
 
-        // User interactions store - only create if it doesn't exist
-        if (!db.objectStoreNames.contains('interactions')) {
-          const interactionsStore = db.createObjectStore('interactions', { keyPath: ['contentId', 'action'] });
-          interactionsStore.createIndex('action', 'action', { unique: false });
-          interactionsStore.createIndex('timestamp', 'timestamp', { unique: false });
-          console.log('Created interactions store');
-        }
+          // User interactions store - only create if it doesn't exist
+          if (!db.objectStoreNames.contains('interactions')) {
+            const interactionsStore = db.createObjectStore('interactions', { keyPath: ['contentId', 'action'] });
+            interactionsStore.createIndex('action', 'action', { unique: false });
+            interactionsStore.createIndex('timestamp', 'timestamp', { unique: false });
+            console.log('Created interactions store');
+          }
 
-        // User content store (uploads) - only create if it doesn't exist
-        if (!db.objectStoreNames.contains('userContent')) {
-          const userContentStore = db.createObjectStore('userContent', { keyPath: 'id' });
-          userContentStore.createIndex('contentId', 'contentId', { unique: false });
-          userContentStore.createIndex('status', 'status', { unique: false });
-          userContentStore.createIndex('uploadedAt', 'uploadedAt', { unique: false });
-          console.log('Created userContent store');
-        }
-        
-        // Followed addresses store - ensure it always exists
-        // Delete it first if it exists to ensure clean creation
-        if (db.objectStoreNames.contains('followedAddresses')) {
-          db.deleteObjectStore('followedAddresses');
-          console.log('Deleted existing followedAddresses store for recreation');
-        }
-        
-        const followedAddressesStore = db.createObjectStore('followedAddresses', { keyPath: 'address' });
-        followedAddressesStore.createIndex('addedAt', 'addedAt', { unique: false });
-        console.log('Created or recreated followedAddresses store');
-      };
+          // User content store (uploads) - only create if it doesn't exist
+          if (!db.objectStoreNames.contains('userContent')) {
+            const userContentStore = db.createObjectStore('userContent', { keyPath: 'id' });
+            userContentStore.createIndex('contentId', 'contentId', { unique: false });
+            userContentStore.createIndex('status', 'status', { unique: false });
+            userContentStore.createIndex('uploadedAt', 'uploadedAt', { unique: false });
+            console.log('Created userContent store');
+          }
+          
+          // Followed addresses store - create or recreate
+          try {
+            if (db.objectStoreNames.contains('followedAddresses')) {
+              db.deleteObjectStore('followedAddresses');
+              console.log('Deleted existing followedAddresses store for recreation');
+            }
+            
+            const followedAddressesStore = db.createObjectStore('followedAddresses', { keyPath: 'address' });
+            followedAddressesStore.createIndex('addedAt', 'addedAt', { unique: false });
+            console.log('Created or recreated followedAddresses store');
+          } catch (error) {
+            console.error('Error creating followedAddresses store:', error);
+          }
+        };
 
-      request.onsuccess = (event) => {
-        this.db = (event.target as IDBOpenDBRequest).result;
-        console.log('PodexDB initialized successfully with version:', this.version);
-        resolve();
-      };
+        request.onsuccess = (event) => {
+          this.db = (event.target as IDBOpenDBRequest).result;
+          console.log('PodexDB initialized successfully with version:', this.db.version);
+          resolve();
+        };
 
-      request.onerror = (event) => {
-        console.error('Error initializing PodexDB:', (event.target as IDBOpenDBRequest).error);
-        reject((event.target as IDBOpenDBRequest).error);
-      };
+        request.onerror = (event) => {
+          console.error('Error initializing PodexDB:', (event.target as IDBOpenDBRequest).error);
+          reject((event.target as IDBOpenDBRequest).error);
+        };
+      } catch (error) {
+        console.error('Exception during database initialization:', error);
+        reject(error);
+      }
     });
   }
 
@@ -397,7 +405,10 @@ class PodexDatabase {
         const store = transaction.objectStore('followedAddresses');
         const request = store.getAll();
 
-        request.onsuccess = () => resolve(request.result || []);
+        request.onsuccess = () => {
+          console.log('Retrieved followed addresses:', request.result);
+          resolve(request.result || []);
+        };
         request.onerror = (event) => {
           console.error("Error in getFollowedAddresses:", (event.target as IDBRequest).error);
           reject((event.target as IDBRequest).error);
@@ -463,4 +474,3 @@ class PodexDatabase {
 }
 
 export const db = new PodexDatabase();
-

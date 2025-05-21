@@ -13,6 +13,7 @@ const FollowingList: React.FC = () => {
   const [newAddress, setNewAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { address: connectedAddress } = useWallet();
 
   // Load followed addresses
@@ -20,10 +21,14 @@ const FollowingList: React.FC = () => {
     const loadFollowedAddresses = async () => {
       try {
         setIsLoading(true);
+        setError(null);
+        console.log('Loading followed addresses...');
         const addresses = await db.getFollowedAddresses();
+        console.log('Followed addresses loaded:', addresses);
         setFollowedAddresses(addresses);
       } catch (error) {
         console.error('Error loading followed addresses:', error);
+        setError('Failed to load followed addresses. Please try again.');
       } finally {
         setIsLoading(false);
       }
@@ -234,9 +239,11 @@ const FollowingList: React.FC = () => {
         <h3 className="font-medium mb-2">Currently Following</h3>
         
         {isLoading ? (
-          <div>Loading...</div>
+          <div className="py-4 flex justify-center">Loading followed addresses...</div>
+        ) : error ? (
+          <div className="text-red-500">{error}</div>
         ) : followedAddresses.length === 0 ? (
-          <div className="text-gray-500">You are not following any addresses yet.</div>
+          <div className="text-gray-500 py-2">You are not following any addresses yet.</div>
         ) : (
           <div className="space-y-2">
             {followedAddresses.map((followed) => (
