@@ -8,11 +8,34 @@ export function cn(...inputs: ClassValue[]) {
 
 export async function fetchStreaming(url: string, updateData: (data: string) => void) {
   try {
+    // Prepare headers
+    const headers: Record<string, string> = {};
+    
+    // Add basic auth header if stored in localStorage
+    const apiUrl = localStorage.getItem('codexApiUrl');
+    const downloadUrl = localStorage.getItem('downloadApiUrl');
+    
+    if (apiUrl && url.startsWith(apiUrl)) {
+      const username = localStorage.getItem('codexApiUsername');
+      const password = localStorage.getItem('codexApiPassword');
+      
+      if (username && password) {
+        const base64Credentials = btoa(`${username}:${password}`);
+        headers['Authorization'] = `Basic ${base64Credentials}`;
+      }
+    } else if (downloadUrl && url.startsWith(downloadUrl)) {
+      const username = localStorage.getItem('downloadApiUsername');
+      const password = localStorage.getItem('downloadApiPassword');
+      
+      if (username && password) {
+        const base64Credentials = btoa(`${username}:${password}`);
+        headers['Authorization'] = `Basic ${base64Credentials}`;
+      }
+    }
+
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        // Ensure headers match the server's expectations
-      },
+      headers,
     });
 
     if (!response.ok) throw new Error('Stream failed');
@@ -127,4 +150,37 @@ export async function formatAddress(address: string, short: boolean = true): Pro
   return short 
     ? `${address.slice(0, 6)}...${address.slice(-4)}`
     : address;
+}
+
+// Create a helper function to add basic auth to URLs if needed
+export function addBasicAuthHeaders(url: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+  
+  try {
+    // Add basic auth header if stored in localStorage
+    const apiUrl = localStorage.getItem('codexApiUrl');
+    const downloadUrl = localStorage.getItem('downloadApiUrl');
+    
+    if (apiUrl && url.startsWith(apiUrl)) {
+      const username = localStorage.getItem('codexApiUsername');
+      const password = localStorage.getItem('codexApiPassword');
+      
+      if (username && password) {
+        const base64Credentials = btoa(`${username}:${password}`);
+        headers['Authorization'] = `Basic ${base64Credentials}`;
+      }
+    } else if (downloadUrl && url.startsWith(downloadUrl)) {
+      const username = localStorage.getItem('downloadApiUsername');
+      const password = localStorage.getItem('downloadApiPassword');
+      
+      if (username && password) {
+        const base64Credentials = btoa(`${username}:${password}`);
+        headers['Authorization'] = `Basic ${base64Credentials}`;
+      }
+    }
+  } catch (error) {
+    console.error("Error creating auth headers:", error);
+  }
+  
+  return headers;
 }
