@@ -453,18 +453,7 @@ class PodexDatabase {
     }
   }
 
-  async getContent(id: string): Promise<Content | null> {
-    await this.ensureDbReady();
-    
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction('content', 'readonly');
-      const store = transaction.objectStore('content');
-      const request = store.get(id);
-
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = (event) => reject((event.target as IDBRequest).error);
-    });
-  }
+  // Removing the duplicate getContent method that was causing the error
 
   private async ensureDbReady(): Promise<void> {
     if (!this.db) {
@@ -474,3 +463,4 @@ class PodexDatabase {
 }
 
 export const db = new PodexDatabase();
+
