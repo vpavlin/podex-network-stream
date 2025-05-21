@@ -26,6 +26,12 @@ export interface UserContent {
   uploadedAt: number;
 }
 
+export interface FollowedAddress {
+  address: string;
+  ensName?: string;
+  addedAt: number;
+}
+
 class PodexDatabase {
   private db: IDBDatabase | null = null;
   private dbName = 'podex-db';
@@ -63,6 +69,12 @@ class PodexDatabase {
           userContentStore.createIndex('contentId', 'contentId', { unique: false });
           userContentStore.createIndex('status', 'status', { unique: false });
           userContentStore.createIndex('uploadedAt', 'uploadedAt', { unique: false });
+        }
+        
+        // Followed addresses store
+        if (!db.objectStoreNames.contains('followedAddresses')) {
+          const followedAddressesStore = db.createObjectStore('followedAddresses', { keyPath: 'address' });
+          followedAddressesStore.createIndex('addedAt', 'addedAt', { unique: false });
         }
       };
 
@@ -312,6 +324,82 @@ class PodexDatabase {
     }
     
     return contentItems;
+  }
+
+  // Followed addresses methods
+  async followAddress(address: string, ensName?: string): Promise<void> {
+    await this.ensureDbReady();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction('followedAddresses', 'readwrite');
+      const store = transaction.objectStore('followedAddresses');
+      
+      const followedAddress: FollowedAddress = {
+        address: address.toLowerCase(),
+        ensName,
+        addedAt: Date.now(),
+      };
+      
+      const request = store.put(followedAddress);
+
+      request.onsuccess = () => resolve();
+      request.onerror = (event) => reject((event.target as IDBRequest).error);
+    });
+  }
+
+  async unfollowAddress(address: string): Promise<void> {
+    await this.ensureDbReady();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction('followedAddresses', 'readwrite');
+      const store = transaction.objectStore('followedAddresses');
+      const request = store.delete(address.toLowerCase());
+
+      request.onsuccess = () => resolve();
+      request.onerror = (event) => reject((event.target as IDBRequest).error);
+    });
+  }
+
+  async getFollowedAddresses(): Promise<FollowedAddress[]> {
+    await this.ensureDbReady();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction('followedAddresses', 'readonly');
+      const store = transaction.objectStore('followedAddresses');
+      const request = store.getAll();
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = (event) => reject((event.target as IDBRequest).error);
+    });
+  }
+
+  async isAddressFollowed(address: string): Promise<boolean> {
+    await this.ensureDbReady();
+    
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction('followedAddresses', 'readonly');
+      const store = transaction.objectStore('followedAddresses');
+      const request = store.get(address.toLowerCase());
+
+      request.onsuccess = () => resolve(!!request.result);
+      request.onerror = (event) => reject((event.target as IDBRequest).error);
+    });
+  }
+
+  async getContentFromFollowedAddresses(): Promise<Content[]> {
+    const followedAddresses = await this.getFollowedAddresses();
+    
+    if (followedAddresses.length === 0) {
+      return [];
+    }
+
+    const addressSet = new Set(followedAddresses.map(fa => fa.address.toLowerCase()));
+    
+    // Get all content and filter by publisher
+    const allContent = await this.getAllContent();
+    return allContent.filter(content => 
+      content.publisher && addressSet.has(content.publisher.toLowerCase())
+    ).sort((a, b) => b.publishedAt - a.publishedAt);
   }
 
   private async ensureDbReady(): Promise<void> {

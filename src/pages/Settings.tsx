@@ -4,7 +4,7 @@ import { defaultSettings, useSettings } from '@/contexts/SettingsContext';
 import { toast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription } from '@/components/ui/form';
+import FollowingList from '@/components/FollowingList';
 
 const Settings = () => {
   const { 
@@ -45,6 +45,10 @@ const Settings = () => {
   return (
     <div className="container py-6">
       <h1 className="text-xl font-bold mb-6">SETTINGS</h1>
+      
+      <div className="mb-6">
+        <FollowingList />
+      </div>
       
       <div className="border border-black p-6">
         <div className="mb-6">

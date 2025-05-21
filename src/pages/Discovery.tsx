@@ -5,44 +5,107 @@ import ContentCard from '@/components/ContentCard';
 import { useWallet } from '@/contexts/WalletContext';
 import { subscribeToContentAnnouncements } from '@/lib/waku';
 import { toast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { UserRoundPlus, UserCheck, Link } from 'lucide-react';
 
 const Discovery = () => {
   const [latestContent, setLatestContent] = useState<Content[]>([]);
+  const [followedContent, setFollowedContent] = useState<Content[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'all' | 'following'>('all');
   const { address } = useWallet();
 
+  // Load content based on the current view mode
   useEffect(() => {
-    const loadLatestContent = async () => {
+    const loadContent = async () => {
       try {
         setIsLoading(true);
-        const content = await db.getLatestContent(20);
-        setLatestContent(content);
+        if (viewMode === 'following') {
+          const content = await db.getContentFromFollowedAddresses();
+          setFollowedContent(content);
+        } else {
+          const content = await db.getLatestContent(20);
+          setLatestContent(content);
+        }
       } catch (error) {
-        console.error('Error loading latest content:', error);
+        console.error(`Error loading ${viewMode} content:`, error);
       } finally {
         setIsLoading(false);
       }
     };
-
- 
     
+    loadContent();
+  }, [viewMode]);
+
+  // Set up real-time content updates
+  useEffect(() => {
     // Update UI
-    const processNewAnnounce = (e) => {
-      setLatestContent(prev => [e.detail, ...prev]);
-    }
+    const processNewAnnounce = async (e) => {
+      const newContent = e.detail;
+      
+      // Check if the publisher of this content is being followed
+      if (newContent.publisher) {
+        const isFollowed = await db.isAddressFollowed(newContent.publisher);
+        
+        if (isFollowed) {
+          setFollowedContent(prev => [newContent, ...prev]);
+        }
+      }
+      
+      // Always update the latest content view
+      setLatestContent(prev => [newContent, ...prev]);
+    };
 
-    document.addEventListener("podex:announce", processNewAnnounce)
-    loadLatestContent();
-
-    // Set up a polling mechanism to check for new content
-    const intervalId = setInterval(loadLatestContent, 30000); // Check every 30 seconds
-
+    document.addEventListener("podex:announce", processNewAnnounce);
+    
     return () => {
-    clearInterval(intervalId);
-    document.removeEventListener("podex:announce", processNewAnnounce)
-    }
-   
+      document.removeEventListener("podex:announce", processNewAnnounce);
+    };
   }, []);
+
+  // Handle address following
+  const handleFollowPublisher = async (publisherAddress: string) => {
+    if (!publisherAddress) return;
+    
+    try {
+      // Check if already following
+      const isFollowed = await db.isAddressFollowed(publisherAddress);
+      
+      if (isFollowed) {
+        toast({
+          title: "Already following",
+          description: "You are already following this address",
+        });
+        return;
+      }
+      
+      // Try to get ENS name for the address
+      const ensName = await window.ethereum?.request({
+        method: 'eth_lookupAddress',
+        params: [publisherAddress]
+      }).catch(() => null);
+      
+      await db.followAddress(publisherAddress, ensName || undefined);
+      
+      // Refresh followed content if in following mode
+      if (viewMode === 'following') {
+        const content = await db.getContentFromFollowedAddresses();
+        setFollowedContent(content);
+      }
+      
+      toast({
+        title: "Address followed",
+        description: `You are now following ${ensName || publisherAddress.slice(0,6)}...${publisherAddress.slice(-4)}`
+      });
+    } catch (error) {
+      console.error('Error following publisher:', error);
+      toast({
+        title: "Error",
+        description: "Failed to follow address",
+        variant: "destructive"
+      });
+    }
+  };
 
   // Simulate fetching content from decentralized network
   const addDemoContent = async () => {
@@ -62,39 +125,97 @@ const Discovery = () => {
       
       await db.addContent(demoContent);
       setLatestContent(prevContent => [demoContent, ...prevContent]);
+      
+      // Also update followed content if relevant
+      if (address) {
+        const isAddressFollowed = await db.isAddressFollowed(address);
+        if (isAddressFollowed) {
+          setFollowedContent(prevContent => [demoContent, ...prevContent]);
+        }
+      }
     } catch (error) {
       console.error('Error adding demo content:', error);
     }
   };
 
+  const displayContent = viewMode === 'following' ? followedContent : latestContent;
+
   return (
     <div className="container py-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-xl font-bold">DISCOVER NEW CONTENT</h1>
         
-        {process.env.NODE_ENV === 'development' && (
-          <button 
-            onClick={addDemoContent}
-            className="border border-black px-3 py-1 text-sm hover:bg-black hover:text-white"
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => setViewMode('all')}
+            variant={viewMode === 'all' ? 'default' : 'outline'} 
+            className={`border ${viewMode === 'all' ? 'bg-black text-white' : 'border-black'} px-3 py-1 text-sm`}
           >
-            Add Demo Content
-          </button>
-        )}
+            <Link className="h-4 w-4 mr-2" />
+            All Content
+          </Button>
+          
+          <Button
+            onClick={() => setViewMode('following')}
+            variant={viewMode === 'following' ? 'default' : 'outline'}
+            className={`border ${viewMode === 'following' ? 'bg-black text-white' : 'border-black'} px-3 py-1 text-sm`}
+          >
+            <UserCheck className="h-4 w-4 mr-2" />
+            Following
+          </Button>
+          
+          {process.env.NODE_ENV === 'development' && (
+            <Button 
+              onClick={addDemoContent}
+              className="border border-black px-3 py-1 text-sm hover:bg-black hover:text-white"
+            >
+              Add Demo Content
+            </Button>
+          )}
+        </div>
       </div>
       
       {isLoading ? (
         <div className="w-full flex justify-center items-center py-12">
           <p>Loading...</p>
         </div>
-      ) : latestContent.length === 0 ? (
+      ) : displayContent.length === 0 ? (
         <div className="w-full flex flex-col items-center justify-center py-12 border border-black">
-          <p className="mb-4">No content discovered yet.</p>
-          <p className="text-sm text-gray-600">Content will appear here as it becomes available on the network.</p>
+          {viewMode === 'following' ? (
+            <>
+              <p className="mb-4">No content from followed addresses.</p>
+              <p className="text-sm text-gray-600 mb-4">Follow some addresses to see their content here.</p>
+              <Button
+                onClick={() => setViewMode('all')}
+                className="border border-black px-3 py-1 text-sm hover:bg-black hover:text-white"
+              >
+                View All Content
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="mb-4">No content discovered yet.</p>
+              <p className="text-sm text-gray-600">Content will appear here as it becomes available on the network.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {latestContent.map((content) => (
-            <ContentCard key={content.id} content={content} />
+          {displayContent.map((content) => (
+            <div key={content.id} className="relative">
+              <ContentCard content={content} />
+              
+              {content.publisher && (
+                <Button
+                  onClick={() => handleFollowPublisher(content.publisher)}
+                  className="absolute top-2 right-2 bg-white text-black hover:bg-black hover:text-white rounded-full w-8 h-8 p-0 shadow"
+                  size="sm"
+                  title="Follow publisher"
+                >
+                  <UserRoundPlus className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           ))}
         </div>
       )}
