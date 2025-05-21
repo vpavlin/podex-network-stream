@@ -4,11 +4,13 @@ import { defaultSettings, useSettings } from '@/contexts/SettingsContext';
 import { toast } from '@/hooks/use-toast';
 
 const Settings = () => {
-  const { codexApiUrl, setCodexApiUrl } = useSettings();
+  const { codexApiUrl, setCodexApiUrl, downloadApiUrl, setDownloadApiUrl } = useSettings();
   const [apiUrl, setApiUrl] = useState(codexApiUrl);
+  const [downloadUrl, setDownloadUrl] = useState(downloadApiUrl);
 
   const handleSave = () => {
     setCodexApiUrl(apiUrl);
+    setDownloadApiUrl(downloadUrl);
     toast({
       title: "Settings Saved",
       description: "Your settings have been updated successfully."
@@ -33,6 +35,22 @@ const Settings = () => {
           />
           <p className="text-sm text-gray-600 mt-1">
             The base URL for the Codex API (default: {defaultSettings.codexApiUrl})
+          </p>
+        </div>
+        
+        <div className="mb-4">
+          <label htmlFor="downloadApiUrl" className="block mb-2 font-medium">
+            Download API URL
+          </label>
+          <input
+            id="downloadApiUrl"
+            type="text"
+            value={downloadUrl}
+            onChange={(e) => setDownloadUrl(e.target.value)}
+            className="w-full p-2 border border-black"
+          />
+          <p className="text-sm text-gray-600 mt-1">
+            The base URL for the Download API service (default: {defaultSettings.downloadApiUrl})
           </p>
         </div>
         
