@@ -1,3 +1,4 @@
+
 export interface PodexManifest {
     title: string;
     description: string;
@@ -13,3 +14,10 @@ export interface PodexManifest {
 export type ContentAnnouncement = PodexManifest & {
     cid: string;
   }
+
+// Add a new interface for verification status
+export interface VerificationStatus {
+  contentId: string;
+  isVerified: boolean;
+  verifiedAt: number;
+}

@@ -51,3 +51,25 @@ export async function fetchStreaming(url: string, updateData: (data: string) => 
   }
 }
 
+export function verifySignature(message: string, signature: string, expectedAddress: string): boolean {
+  try {
+    if (!window.ethereum || !signature || !expectedAddress) {
+      return false;
+    }
+    
+    // Create the message buffer that was signed
+    const msgBuffer = `0x${Buffer.from(message, "utf8").toString("hex")}`;
+    
+    // Recover the address from the signature
+    const recoveredAddress = window.ethereum.request({
+      method: "personal_ecRecover",
+      params: [msgBuffer, signature],
+    });
+    
+    // Compare the recovered address to the expected address (case-insensitive)
+    return recoveredAddress.toLowerCase() === expectedAddress.toLowerCase();
+  } catch (error) {
+    console.error("Error verifying signature:", error);
+    return false;
+  }
+}

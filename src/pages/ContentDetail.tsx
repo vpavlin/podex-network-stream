@@ -4,8 +4,10 @@ import { useParams } from 'react-router-dom';
 import { Content, db, UserInteraction } from '@/lib/db';
 import MediaPlayer from '@/components/MediaPlayer';
 import { useWallet } from '@/contexts/WalletContext';
-import { Heart, Bookmark, ArrowBigDown } from 'lucide-react';
+import { Heart, Bookmark, ArrowBigDown, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useCodexApi } from '@/lib/codex';
+import { verifySignature } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 const ContentDetail = () => {
   const { id } = useParams<{ id: string }>(); // This is now the CID
@@ -15,6 +17,7 @@ const ContentDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
   const [isWatchLater, setIsWatchLater] = useState(false);
+  const [signatureVerified, setSignatureVerified] = useState<boolean | null>(null);
 
   useEffect(() => {
     const fetchContent = async () => {
@@ -30,6 +33,27 @@ const ContentDetail = () => {
         
         if (contentData) {
           setContent(contentData);
+          
+          // Verify signature
+          if (contentData.signature && contentData.publisher) {
+            try {
+              // Reconstruct the original signed message
+              const signedMessage = `Publishing ${contentData.title} (Content CID: ${contentData.cid}) on ${(new Date(contentData.publishedAt)).toISOString()}`;
+              
+              // Use our utility function to verify the signature
+              const isVerified = await window.ethereum.request({
+                method: "personal_ecRecover",
+                params: [`0x${Buffer.from(signedMessage, "utf8").toString("hex")}`, contentData.signature],
+              });
+              
+              setSignatureVerified(isVerified.toLowerCase() === contentData.publisher.toLowerCase());
+            } catch (error) {
+              console.error("Error verifying signature:", error);
+              setSignatureVerified(false);
+            }
+          } else {
+            setSignatureVerified(false);
+          }
           
           // Record view interaction
           if (address) {
@@ -134,7 +158,24 @@ const ContentDetail = () => {
         
         <div className="mt-6">
           <div className="flex justify-between items-start">
-            <h1 className="text-2xl font-bold">{content.title}</h1>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold">{content.title}</h1>
+                {signatureVerified !== null && (
+                  signatureVerified ? (
+                    <div className="flex items-center text-green-600" title="Signature verified">
+                      <ShieldCheck size={16} />
+                      <span className="text-xs ml-1">Verified</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-red-600" title="Signature could not be verified">
+                      <ShieldAlert size={16} />
+                      <span className="text-xs ml-1">Not verified</span>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
             
             <div className="flex flex-col space-y-4">
               <button 
@@ -160,8 +201,7 @@ const ContentDetail = () => {
               >
                 <ArrowBigDown size={20} />
                 <span>Download</span>
-
-            </button>
+              </button>
             </div>
           </div>
           
