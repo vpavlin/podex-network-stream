@@ -1,8 +1,8 @@
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Content, UserInteraction, db } from '@/lib/db';
-import { Heart, Bookmark } from 'lucide-react';
+import { Heart, Bookmark, ArrowBigDown } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 
 interface ContentCardProps {

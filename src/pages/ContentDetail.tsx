@@ -4,13 +4,13 @@ import { useParams } from 'react-router-dom';
 import { Content, db, UserInteraction } from '@/lib/db';
 import MediaPlayer from '@/components/MediaPlayer';
 import { useWallet } from '@/contexts/WalletContext';
-import { Heart, Bookmark } from 'lucide-react';
+import { Heart, Bookmark, ArrowBigDown } from 'lucide-react';
 import { useCodexApi } from '@/lib/codex';
 
 const ContentDetail = () => {
   const { id } = useParams<{ id: string }>(); // This is now the CID
   const { address } = useWallet();
-  const { fetchPodexManifest } = useCodexApi();
+  const { fetchPodexManifest, getContentStreamUrl } = useCodexApi();
   const [content, setContent] = useState<Content | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
@@ -93,6 +93,18 @@ const ContentDetail = () => {
     }
   };
 
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const link = document.createElement('a')
+    link.href = getContentStreamUrl(content.cid)
+    link.download =`${content.title}.webm` //FIXME
+    link.click()
+
+    link.remove()
+  }
+
   if (isLoading) {
     return (
       <div className="container py-12">
@@ -124,7 +136,7 @@ const ContentDetail = () => {
           <div className="flex justify-between items-start">
             <h1 className="text-2xl font-bold">{content.title}</h1>
             
-            <div className="flex space-x-4">
+            <div className="flex flex-col space-y-4">
               <button 
                 onClick={handleLike}
                 className={`flex items-center space-x-1 ${isLiked ? 'text-black' : 'text-gray-600'}`}
@@ -142,6 +154,14 @@ const ContentDetail = () => {
                 <Bookmark size={20} fill={isWatchLater ? "black" : "none"} />
                 <span>{isWatchLater ? 'Saved' : 'Save for later'}</span>
               </button>
+              <button 
+                onClick={handleDownload}
+                className={`flex items-center space-x-1 text-gray-600`}
+              >
+                <ArrowBigDown size={20} />
+                <span>Download</span>
+
+            </button>
             </div>
           </div>
           

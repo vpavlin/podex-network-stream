@@ -74,7 +74,8 @@ export const getDispatcher = async (): Promise<Dispatcher> => {
             url: "", // We don't have the URL yet, it will be fetched when viewing
             cid: announcement.contentCid,
             publisher: announcement.publisher,
-            publishedAt: announcement.publishedAt
+            publishedAt: announcement.publishedAt,
+            signature: announcement.signature
           };
 
           // Add to database

@@ -1,12 +1,14 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
+import { Buffer } from 'buffer';
 
 interface WalletContextType {
   address: string | null;
   isConnecting: boolean;
   connect: () => Promise<void>;
   disconnect: () => void;
+  sign: (msg:string) => Promise<string>
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -84,8 +86,25 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
+  const sign = async (msg:string):Promise<string> => {
+    if (!window.ethereum) {
+      toast({
+        title: "Ethereum Wallet not connected",
+        description: "Please install MetaMask or another Ethereum wallet and conect the wallet."
+      });
+      throw new Error("Wallet not connected")
+    }
+    const toSign = `0x${Buffer.from(msg, "utf8").toString("hex")}`
+    const signature = await window.ethereum.request({
+      method: "personal_sign",
+      params: [toSign, address],
+    })
+
+    return signature
+  }
+
   return (
-    <WalletContext.Provider value={{ address, isConnecting, connect, disconnect }}>
+    <WalletContext.Provider value={{ address, isConnecting, connect, disconnect, sign }}>
       {children}
     </WalletContext.Provider>
   );

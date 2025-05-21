@@ -10,6 +10,7 @@ export interface Content {
   publisher: string;
   publishedAt: number;
   metadata?: Record<string, any>;
+  signature: string;
 }
 
 export interface UserInteraction {

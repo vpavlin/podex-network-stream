@@ -6,6 +6,7 @@ export interface PodexManifest {
     publishedAt: number;
     thumbnailCid: string;
     contentCid: string;
+    signature: string;
   }
 
 // Define content announcement interface

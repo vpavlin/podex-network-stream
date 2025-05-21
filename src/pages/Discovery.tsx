@@ -57,6 +57,7 @@ const Discovery = () => {
           : 'https://download.samplelib.com/mp4/sample-5s.mp4',
         publisher: address || '0xUnknownPublisher',
         publishedAt: Date.now(),
+        signature: ""
       };
       
       await db.addContent(demoContent);

@@ -10,11 +10,12 @@ import { announceContent } from '@/lib/waku';
 import { PodexManifest } from '@/lib/types';
 import { useSettings } from '@/contexts/SettingsContext';
 import { Input } from '@/components/ui/input';
+import { fetchStreaming } from '@/lib/utils';
 
 const Publish = () => {
-  const { address } = useWallet();
+  const { address, sign } = useWallet();
   const navigate = useNavigate();
-  const { uploadToCodex } = useCodexApi();
+  const { uploadToCodex, getContentStreamUrl } = useCodexApi();
   const { downloadApiUrl } = useSettings();
   
   const [title, setTitle] = useState('');
@@ -26,6 +27,8 @@ const Publish = () => {
   const [externalUrl, setExternalUrl] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
   const [publishMode, setPublishMode] = useState<'upload' | 'external'>('upload');
+  const [consoleLog, setConsoleLog] = useState<string[]>([])
+  const [contentCID, setContentCID] = useState<string>()
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -47,25 +50,49 @@ const Publish = () => {
       });
       return;
     }
+
+    setConsoleLog([])
     
     setIsDownloading(true);
     
     try {
+
+      fetch(`${downloadApiUrl}/api/v1/manifest?url=${externalUrl}`).then(async (response) => {
+        const data = await response.json()
+        const manifest = JSON.parse(data['data'])
+
+        if (manifest.title) {
+          setTitle(manifest.title)
+        }
+
+        if (manifest.description) {
+          setDescription(manifest.description)
+        }
+
+        if (manifest.filename) {
+          setFile(new File([], manifest.filename))
+
+        }
+
+        if (manifest.thumbnail) {
+          console.log("Fetching thumbnail")
+          fetch(manifest.thumbnail).then(async resp => {
+            const data = await resp.blob()
+            setThumbnail(new File([data], "thumbnail.jpg"))
+          })
+        }
+      })
+
       // Call the download API to fetch the content
-      const response = await fetch(`${downloadApiUrl}/download`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: externalUrl }),
-      });
+      await fetchStreaming(`${downloadApiUrl}/api/v1/download?url=${externalUrl}`, (line: string) => {
+        if (line.includes("[CID]")) {
+          setContentCID(line.slice(6))
+        }
+
+        setConsoleLog(prev => [line, ...prev.slice(0, 40)])
+      })
       
-      if (!response.ok) {
-        throw new Error(`Download API responded with status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
+      /*
       // Create a file from the downloaded content
       const contentBlob = await fetch(result.contentUrl).then(r => r.blob());
       const downloadedFile = new File([contentBlob], result.filename || "downloaded-content", { 
@@ -88,7 +115,7 @@ const Publish = () => {
       
       if (result.description && !description) {
         setDescription(result.description);
-      }
+      }*/
       
       toast({ 
         title: "Content Downloaded", 
@@ -96,7 +123,7 @@ const Publish = () => {
       });
       
       // Switch to upload mode with the downloaded content
-      setPublishMode('upload');
+      //setPublishMode('upload');
       
     } catch (error) {
       console.error('Error downloading content:', error);
@@ -130,9 +157,19 @@ const Publish = () => {
     
     try {
       setIsUploading(true);
+
+      let cid:string, url:string = undefined
       
       // Upload to Codex and get CID
-      const { cid, url } = await uploadToCodex(file);
+      if (file && !contentCID) {
+        const result = await uploadToCodex(file);
+        cid = result.cid
+        url = result.url
+      } else {
+        cid = contentCID
+        url = getContentStreamUrl(contentCID)
+      }
+
       
       let thumbnailUrl = '';
       let thumbnailCid = '';
@@ -142,39 +179,33 @@ const Publish = () => {
         thumbnailCid = thumbnailUpload.cid;
       }
 
+      const ts = Date.now()
+      const signature = await sign(`Publishing ${title} (Content CID: ${cid}) on ${(new Date(ts)).toISOString()}`)
+
+
       const podexManifest: PodexManifest = {
         title,
         description,
         type: contentType,
         publisher: address,
-        publishedAt: Date.now(),
+        publishedAt: ts,
         thumbnailCid: thumbnailCid,
         contentCid: cid,
+        signature: signature
       }
+
+
 
       const podexManifestFile = new File([JSON.stringify(podexManifest)], "podexManifest.json", {type: "application/json"})
       const podexManifestUpload = await uploadToCodex(podexManifestFile)
+
       
       // Announce the content to the Waku network
-      const res = await announceContent({...podexManifest, cid: podexManifestUpload.cid})
+      const res = await announceContent({...podexManifest, cid: podexManifestUpload.cid, signature: signature})
 
       if (!res) throw new Error("Failed to publish")
 
       const contentId = podexManifestUpload.cid
-
-      // Create content object
-      const contentData: Content = {
-        id: contentId,
-        title,
-        description,
-        type: contentType,
-        url,
-        cid,
-        thumbnail: thumbnailUrl,
-        thumbnailCid: thumbnailCid,
-        publisher: address,
-        publishedAt: Date.now()
-      };
       
       // Create user content record
       const userContent: UserContent = {
@@ -264,6 +295,9 @@ const Publish = () => {
             <p className="text-sm text-gray-600 mt-1">
               Download content from external platforms to publish on Podex.
             </p>
+            <p className='max-h-[300px] overflow-scroll'>
+              {consoleLog.map(line => <p>{line}</p>)}
+            </p>
           </div>
         )}
       </div>
@@ -324,7 +358,13 @@ const Publish = () => {
           </div>
         </div>
         
-        {publishMode === 'upload' && (
+        {publishMode === 'external' ?
+        (
+          <div className="mb-4">
+            {file && file.name}
+          </div>
+        )
+        : (
           <div className="mb-4">
             <label htmlFor="file" className="block mb-2 font-medium">
               {contentType === 'video' ? 'Video File' : 'Audio File'}
@@ -344,13 +384,16 @@ const Publish = () => {
           <label htmlFor="thumbnail" className="block mb-2 font-medium">
             Thumbnail Image (Optional)
           </label>
+          {thumbnail ?
+            <img src={URL.createObjectURL(thumbnail)} />
+          :
           <input
             id="thumbnail"
             type="file"
             accept="image/*"
             onChange={handleThumbnailChange}
             className="w-full p-2 border border-black"
-          />
+          />}
         </div>
         
         <div className="flex justify-center">
