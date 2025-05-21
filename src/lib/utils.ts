@@ -51,7 +51,7 @@ export async function fetchStreaming(url: string, updateData: (data: string) => 
   }
 }
 
-export function verifySignature(message: string, signature: string, expectedAddress: string): boolean {
+export async function verifySignature(message: string, signature: string, expectedAddress: string): Promise<boolean> {
   try {
     if (!window.ethereum || !signature || !expectedAddress) {
       return false;
@@ -61,7 +61,7 @@ export function verifySignature(message: string, signature: string, expectedAddr
     const msgBuffer = `0x${Buffer.from(message, "utf8").toString("hex")}`;
     
     // Recover the address from the signature
-    const recoveredAddress = window.ethereum.request({
+    const recoveredAddress = await window.ethereum.request({
       method: "personal_ecRecover",
       params: [msgBuffer, signature],
     });

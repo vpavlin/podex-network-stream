@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Content, db, UserInteraction } from '@/lib/db';
@@ -40,13 +39,9 @@ const ContentDetail = () => {
               // Reconstruct the original signed message
               const signedMessage = `Publishing ${contentData.title} (Content CID: ${contentData.cid}) on ${(new Date(contentData.publishedAt)).toISOString()}`;
               
-              // Use our utility function to verify the signature
-              const isVerified = await window.ethereum.request({
-                method: "personal_ecRecover",
-                params: [`0x${Buffer.from(signedMessage, "utf8").toString("hex")}`, contentData.signature],
-              });
-              
-              setSignatureVerified(isVerified.toLowerCase() === contentData.publisher.toLowerCase());
+              // Use our utility function to verify the signature - properly awaiting the result
+              const isVerified = await verifySignature(signedMessage, contentData.signature, contentData.publisher);
+              setSignatureVerified(isVerified);
             } catch (error) {
               console.error("Error verifying signature:", error);
               setSignatureVerified(false);
