@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Content, db, UserInteraction } from '@/lib/db';
@@ -5,7 +6,7 @@ import MediaPlayer from '@/components/MediaPlayer';
 import { useWallet } from '@/contexts/WalletContext';
 import { Heart, Bookmark, ArrowBigDown, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useCodexApi } from '@/lib/codex';
-import { verifySignature } from '@/lib/utils';
+import { verifySignature, formatAddress } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
 const ContentDetail = () => {
@@ -17,6 +18,7 @@ const ContentDetail = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [isWatchLater, setIsWatchLater] = useState(false);
   const [signatureVerified, setSignatureVerified] = useState<boolean | null>(null);
+  const [publisherDisplay, setPublisherDisplay] = useState<string>('');
 
   useEffect(() => {
     const fetchContent = async () => {
@@ -32,6 +34,12 @@ const ContentDetail = () => {
         
         if (contentData) {
           setContent(contentData);
+          
+          // Get ENS name or formatted address for publisher
+          if (contentData.publisher) {
+            const formattedPublisherAddress = await formatAddress(contentData.publisher);
+            setPublisherDisplay(formattedPublisherAddress);
+          }
           
           // Verify signature
           if (contentData.signature && contentData.publisher) {
@@ -201,7 +209,7 @@ const ContentDetail = () => {
           </div>
           
           <div className="flex items-center mt-2 text-sm text-gray-600">
-            <span>Published by {content.publisher.slice(0, 6)}...{content.publisher.slice(-4)}</span>
+            <span>Published by {publisherDisplay}</span>
             <span className="mx-2">•</span>
             <span>{new Date(content.publishedAt).toLocaleDateString()}</span>
           </div>

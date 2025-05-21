@@ -2,9 +2,23 @@
 import { useWallet } from "@/contexts/WalletContext";
 import { Link } from "react-router-dom";
 import { Settings } from "lucide-react";
+import { useState, useEffect } from "react";
+import { formatAddress } from "@/lib/utils";
 
 const Header = () => {
   const { address, isConnecting, connect, disconnect } = useWallet();
+  const [addressDisplay, setAddressDisplay] = useState<string>('');
+
+  useEffect(() => {
+    const resolveAddress = async () => {
+      if (address) {
+        const displayName = await formatAddress(address);
+        setAddressDisplay(displayName);
+      }
+    };
+
+    resolveAddress();
+  }, [address]);
 
   return (
     <header className="w-full border-b border-black py-4">
@@ -31,7 +45,7 @@ const Header = () => {
           
           {address ? (
             <div className="flex items-center space-x-2">
-              <span className="text-xs">{address.slice(0, 6)}...{address.slice(-4)}</span>
+              <span className="text-xs">{addressDisplay}</span>
               <button 
                 onClick={disconnect}
                 className="border border-black px-3 py-1 text-sm hover:bg-black hover:text-white"

@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Content, UserInteraction, db } from '@/lib/db';
 import { Heart, Bookmark, ArrowBigDown } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
+import { formatAddress } from '@/lib/utils';
 
 interface ContentCardProps {
   content: Content;
@@ -14,19 +14,27 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
   const { address } = useWallet();
   const [isLiked, setIsLiked] = useState(false);
   const [isWatchLater, setIsWatchLater] = useState(false);
+  const [publisherDisplay, setPublisherDisplay] = useState<string>('');
 
   useEffect(() => {
-    const checkInteractions = async () => {
+    const setup = async () => {
+      // Check for interactions
       if (address) {
         const liked = await db.hasInteraction(content.id, 'like');
         const watchLater = await db.hasInteraction(content.id, 'watchLater');
         setIsLiked(liked);
         setIsWatchLater(watchLater);
       }
+      
+      // Resolve ENS name for publisher
+      if (content.publisher) {
+        const displayName = await formatAddress(content.publisher);
+        setPublisherDisplay(displayName);
+      }
     };
     
-    checkInteractions();
-  }, [content.id, address]);
+    setup();
+  }, [content.id, content.publisher, address]);
 
   const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -115,7 +123,7 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
         </div>
         <p className="text-sm text-gray-700 mb-2">{truncatedDescription}</p>
         <div className="flex justify-between items-center text-xs text-gray-500">
-          <span>By: {content.publisher.slice(0, 6)}...{content.publisher.slice(-4)}</span>
+          <span>By: {publisherDisplay}</span>
           <span>{formattedDate}</span>
         </div>
       </div>
