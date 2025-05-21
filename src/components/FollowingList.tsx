@@ -48,7 +48,7 @@ const FollowingList: React.FC = () => {
       if (addressToFollow.endsWith('.eth') || !addressToFollow.startsWith('0x')) {
         // Try to resolve ENS name
         try {
-          const resolvedAddress = await window.ethereum.request({
+          const resolvedAddress = await window.ethereum?.request({
             method: 'eth_resolveName',
             params: [addressToFollow]
           });
