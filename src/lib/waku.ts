@@ -16,6 +16,7 @@ import {
 } from "@waku/interfaces"
 import { ContentAnnouncement } from "./types";
 import { Content, db } from "./db";
+import { verifySignature } from "./utils";
 
 const bootstrapNodes: string[] = [
   "/dns4/waku-test.bloxy.one/tcp/8095/wss/p2p/16Uiu2HAmSZbDB7CusdRhgkD81VssRjQV5ZH13FbzCGcdnbbh6VwZ",
@@ -65,6 +66,8 @@ export const getDispatcher = async (): Promise<Dispatcher> => {
         const existingContent = await db.getContent(announcement.cid);
 
         if (!existingContent) {
+          const isFollowed = await db.isAddressFollowed(announcement.publisher);
+          
           // Create a new content object from the announcement
           const newContent: Content = {
             id: announcement.cid,
@@ -78,12 +81,13 @@ export const getDispatcher = async (): Promise<Dispatcher> => {
             signature: announcement.signature
           };
 
-          // Add to database
-          await db.addContent(newContent);
+          if (isFollowed) {
+            // Add to database
+            await db.addContent(newContent);
+          }
 
           // @ts-ignore
           const event = new CustomEvent("podex:announce", { detail: newContent })
-          console.log(event)
           document.dispatchEvent(event)
         }
       })

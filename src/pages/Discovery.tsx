@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Content, db } from '@/lib/db';
 import ContentCard from '@/components/ContentCard';
 import { useWallet } from '@/contexts/WalletContext';
-import { subscribeToContentAnnouncements } from '@/lib/waku';
+import { getDispatcher, subscribeToContentAnnouncements } from '@/lib/waku';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { UserRoundPlus, UserCheck, Link } from 'lucide-react';
@@ -34,9 +34,14 @@ const Discovery = () => {
           if (!isMounted) return;
           setFollowedContent(content);
         } else {
+          const disp = await getDispatcher()
+          disp.clearDuplicateCache()
+          disp.dispatchLocalQuery()
+
           const content = await db.getLatestContent(20);
           if (!isMounted) return;
           setLatestContent(content);
+
         }
       } catch (error) {
         console.error(`Error loading ${viewMode} content:`, error);
