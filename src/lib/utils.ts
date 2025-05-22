@@ -7,6 +7,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Simple in-memory cache for ENS names with TTL
+interface EnsCacheEntry {
+  name: string | null;
+  expiresAt: number;
+}
+
+const ensCache: Record<string, EnsCacheEntry> = {};
+const ENS_CACHE_TTL = 3600000; // 1 hour in milliseconds
+
 export async function fetchStreaming(url: string, updateData: (data: string) => void) {
   try {
     // Prepare headers
@@ -119,15 +128,33 @@ export function getProvider() {
   }
 }
 
-// Resolve ENS name using ethers
+// Resolve ENS name using ethers with caching
 export async function resolveEnsName(address: string): Promise<string | null> {
   try {
     if (!address) return null;
     
+    // Check if we have a valid cached result
+    const now = Date.now();
+    const cachedEntry = ensCache[address.toLowerCase()];
+    
+    if (cachedEntry && cachedEntry.expiresAt > now) {
+      console.log(`Using cached ENS name for ${address}`);
+      return cachedEntry.name;
+    }
+    
+    // No valid cache entry, perform the lookup
     const provider = getProvider();
     if (!provider) return null;
     
+    console.log(`Resolving ENS for address: ${address}`);
     const name = await provider.lookupAddress(address);
+    
+    // Cache the result (even if null) with expiry
+    ensCache[address.toLowerCase()] = {
+      name,
+      expiresAt: now + ENS_CACHE_TTL
+    };
+    
     return name;
   } catch (error) {
     console.error("Error resolving ENS name:", error);
@@ -135,11 +162,20 @@ export async function resolveEnsName(address: string): Promise<string | null> {
   }
 }
 
+// Helper function to clear the ENS cache
+export function clearEnsCache(address?: string): void {
+  if (address) {
+    delete ensCache[address.toLowerCase()];
+  } else {
+    Object.keys(ensCache).forEach(key => delete ensCache[key]);
+  }
+}
+
 // Helper function for displaying address (ENS or formatted address)
 export async function formatAddress(address: string, short: boolean = true): Promise<string> {
   if (!address) return '';
   
-  // Try to resolve ENS name first
+  // Try to resolve ENS name first (this will use cache if available)
   const ensName = await resolveEnsName(address);
   if (ensName) return ensName;
   
