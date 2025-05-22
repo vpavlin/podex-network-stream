@@ -1,9 +1,12 @@
 
 import { useWallet } from "@/contexts/WalletContext";
 import { Link } from "react-router-dom";
-import { Settings } from "lucide-react";
+import { Settings, UserPlus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { formatAddress } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { db } from "@/lib/db";
+import { toast } from "@/hooks/use-toast";
 
 const Header = () => {
   const { address, isConnecting, connect, disconnect } = useWallet();
@@ -19,6 +22,43 @@ const Header = () => {
 
     resolveAddress();
   }, [address]);
+
+  const handleFollowAddress = async () => {
+    if (!address) return;
+    
+    try {
+      // Check if already following
+      const isFollowed = await db.isAddressFollowed(address);
+      
+      if (isFollowed) {
+        toast({
+          title: "Already following",
+          description: "You are already following your own address",
+        });
+        return;
+      }
+      
+      // Try to get ENS name for the address
+      const ensName = await window.ethereum?.request({
+        method: 'eth_lookupAddress',
+        params: [address]
+      }).catch(() => null);
+      
+      await db.followAddress(address, ensName || undefined);
+      
+      toast({
+        title: "Address followed",
+        description: `You are now following ${ensName || addressDisplay}`
+      });
+    } catch (error) {
+      console.error('Error following address:', error);
+      toast({
+        title: "Error",
+        description: "Failed to follow address",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <header className="w-full border-b border-black py-4">
@@ -46,6 +86,16 @@ const Header = () => {
           {address ? (
             <div className="flex items-center space-x-2">
               <span className="text-xs">{addressDisplay}</span>
+              <Button
+                onClick={handleFollowAddress}
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-1 px-2 py-1 h-auto"
+                title="Follow your own address"
+              >
+                <UserPlus className="h-3 w-3" />
+                <span className="text-xs">Follow</span>
+              </Button>
               <button 
                 onClick={disconnect}
                 className="border border-black px-3 py-1 text-sm hover:bg-black hover:text-white"
