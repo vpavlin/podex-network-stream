@@ -102,13 +102,13 @@ export async function verifySignature(message: string, signature: string, expect
 // Get an ethers provider (used for ENS lookups and other operations)
 export function getProvider() {
   // If window.ethereum is available, use it
-  if (window.ethereum) {
+ /* if (window.ethereum) {
     try {
       return new ethers.BrowserProvider(window.ethereum);
     } catch (error) {
       console.error("Error creating provider from window.ethereum:", error);
     }
-  }
+  }*/
   
   // Fallback to a public provider (like Infura)
   try {
