@@ -1,9 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Content, UserInteraction, db } from '@/lib/db';
-import { Heart, Bookmark, ArrowBigDown } from 'lucide-react';
+import { Heart, Bookmark, ArrowBigDown, UserPlus } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { formatAddress } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
 
 interface ContentCardProps {
   content: Content;
@@ -15,6 +18,7 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [isWatchLater, setIsWatchLater] = useState(false);
   const [publisherDisplay, setPublisherDisplay] = useState<string>('');
+  const [isFollowed, setIsFollowed] = useState(false);
 
   useEffect(() => {
     const setup = async () => {
@@ -30,6 +34,10 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
       if (content.publisher) {
         const displayName = await formatAddress(content.publisher);
         setPublisherDisplay(displayName);
+        
+        // Check if publisher is followed
+        const followed = await db.isAddressFollowed(content.publisher);
+        setIsFollowed(followed);
       }
     };
     
@@ -73,6 +81,45 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
       };
       await db.addInteraction(interaction);
       setIsWatchLater(true);
+    }
+  };
+
+  const handleFollowPublisher = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!content.publisher) return;
+    
+    try {
+      if (isFollowed) {
+        await db.unfollowAddress(content.publisher);
+        setIsFollowed(false);
+        toast({
+          title: "Unfollowed",
+          description: `You are no longer following ${publisherDisplay}`
+        });
+      } else {
+        // Try to get ENS name for the address
+        const ensName = await window.ethereum?.request({
+          method: 'eth_lookupAddress',
+          params: [content.publisher]
+        }).catch(() => null);
+        
+        await db.followAddress(content.publisher, ensName || undefined);
+        setIsFollowed(true);
+        
+        toast({
+          title: "Address followed",
+          description: `You are now following ${publisherDisplay}`
+        });
+      }
+    } catch (error) {
+      console.error('Error following publisher:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update follow status",
+        variant: "destructive"
+      });
     }
   };
 
@@ -122,9 +169,22 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
           </div>
         </div>
         <p className="text-sm text-gray-700 mb-2">{truncatedDescription}</p>
-        <div className="flex justify-between items-center text-xs text-gray-500">
-          <span>By: {publisherDisplay}</span>
-          <span>{formattedDate}</span>
+        <div className="flex justify-between items-center text-xs">
+          <div className="flex items-center gap-1 text-gray-500">
+            <span>By: {publisherDisplay}</span>
+            {content.publisher && address && (
+              <Button
+                onClick={handleFollowPublisher}
+                size="sm"
+                variant="ghost"
+                className="p-1 h-6 flex items-center justify-center text-gray-500 hover:text-black"
+                title={isFollowed ? "Unfollow publisher" : "Follow publisher"}
+              >
+                <UserPlus className="h-3 w-3" fill={isFollowed ? "currentColor" : "none"} />
+              </Button>
+            )}
+          </div>
+          <span className="text-gray-500">{formattedDate}</span>
         </div>
       </div>
     </Link>

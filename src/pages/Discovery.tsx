@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Content, db } from '@/lib/db';
 import ContentCard from '@/components/ContentCard';
@@ -259,17 +258,6 @@ const Discovery = () => {
           {displayContent.map((content) => (
             <div key={content.id} className="relative">
               <ContentCard content={content} />
-              
-              {content.publisher && (
-                <Button
-                  onClick={() => handleFollowPublisher(content.publisher)}
-                  className="absolute top-2 right-2 bg-white text-black hover:bg-black hover:text-white rounded-full w-8 h-8 p-0 shadow"
-                  size="sm"
-                  title="Follow publisher"
-                >
-                  <UserRoundPlus className="h-4 w-4" />
-                </Button>
-              )}
             </div>
           ))}
         </div>
