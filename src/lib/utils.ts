@@ -7,14 +7,36 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Simple in-memory cache for ENS names with TTL
+// Simple cache for ENS names with TTL and localStorage persistence
 interface EnsCacheEntry {
   name: string | null;
   expiresAt: number;
 }
 
-const ensCache: Record<string, EnsCacheEntry> = {};
+const ENS_CACHE_KEY = 'podex_ens_cache';
 const ENS_CACHE_TTL = 3600000; // 1 hour in milliseconds
+
+// Load initial cache from localStorage
+const loadEnsCache = (): Record<string, EnsCacheEntry> => {
+  try {
+    const storedCache = localStorage.getItem(ENS_CACHE_KEY);
+    return storedCache ? JSON.parse(storedCache) : {};
+  } catch (error) {
+    console.error("Failed to load ENS cache from localStorage:", error);
+    return {};
+  }
+};
+
+const ensCache: Record<string, EnsCacheEntry> = loadEnsCache();
+
+// Save cache to localStorage
+const saveEnsCache = (): void => {
+  try {
+    localStorage.setItem(ENS_CACHE_KEY, JSON.stringify(ensCache));
+  } catch (error) {
+    console.error("Failed to save ENS cache to localStorage:", error);
+  }
+};
 
 export async function fetchStreaming(url: string, updateData: (data: string) => void) {
   try {
@@ -128,7 +150,7 @@ export function getProvider() {
   }
 }
 
-// Resolve ENS name using ethers with caching
+// Resolve ENS name using ethers with caching and localStorage persistence
 export async function resolveEnsName(address: string): Promise<string | null> {
   try {
     if (!address) return null;
@@ -155,6 +177,9 @@ export async function resolveEnsName(address: string): Promise<string | null> {
       expiresAt: now + ENS_CACHE_TTL
     };
     
+    // Save updated cache to localStorage
+    saveEnsCache();
+    
     return name;
   } catch (error) {
     console.error("Error resolving ENS name:", error);
@@ -169,6 +194,9 @@ export function clearEnsCache(address?: string): void {
   } else {
     Object.keys(ensCache).forEach(key => delete ensCache[key]);
   }
+  
+  // Save updated cache to localStorage
+  saveEnsCache();
 }
 
 // Helper function for displaying address (ENS or formatted address)
