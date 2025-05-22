@@ -8,6 +8,7 @@ import { Heart, Bookmark, ArrowBigDown, ShieldCheck, ShieldAlert } from 'lucide-
 import { useCodexApi } from '@/lib/codex';
 import { verifySignature, formatAddress } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { ethers } from 'ethers';
 
 const ContentDetail = () => {
   const { id } = useParams<{ id: string }>(); // This is now the CID
@@ -41,13 +42,13 @@ const ContentDetail = () => {
             setPublisherDisplay(formattedPublisherAddress);
           }
           
-          // Verify signature
+          // Verify signature using ethers
           if (contentData.signature && contentData.publisher) {
             try {
               // Reconstruct the original signed message
               const signedMessage = `Publishing ${contentData.title} (Content CID: ${contentData.cid}) on ${(new Date(contentData.publishedAt)).toISOString()}`;
               
-              // Use our utility function to verify the signature - properly awaiting the result
+              // Use our updated utility function to verify the signature
               const isVerified = await verifySignature(signedMessage, contentData.signature, contentData.publisher);
               setSignatureVerified(isVerified);
             } catch (error) {

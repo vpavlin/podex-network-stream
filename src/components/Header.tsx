@@ -1,4 +1,3 @@
-
 import { useWallet } from "@/contexts/WalletContext";
 import { Link } from "react-router-dom";
 import { Settings, UserPlus } from "lucide-react";
@@ -7,6 +6,7 @@ import { formatAddress } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { toast } from "@/hooks/use-toast";
+import { ethers } from "ethers";
 
 const Header = () => {
   const { address, isConnecting, connect, disconnect } = useWallet();
@@ -38,11 +38,16 @@ const Header = () => {
         return;
       }
       
-      // Try to get ENS name for the address
-      const ensName = await window.ethereum?.request({
-        method: 'eth_lookupAddress',
-        params: [address]
-      }).catch(() => null);
+      // Try to get ENS name using ethers
+      let ensName = null;
+      try {
+        if (window.ethereum) {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          ensName = await provider.lookupAddress(address);
+        }
+      } catch (err) {
+        console.error("Error getting ENS name:", err);
+      }
       
       await db.followAddress(address, ensName || undefined);
       

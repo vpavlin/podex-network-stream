@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { Buffer } from "buffer";
+import { ethers } from "ethers";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -75,63 +76,59 @@ export async function fetchStreaming(url: string, updateData: (data: string) => 
   }
 }
 
+// Updated to use ethers for signature verification
 export async function verifySignature(message: string, signature: string, expectedAddress: string): Promise<boolean> {
   try {
-    if (!window.ethereum || !signature || !expectedAddress) {
+    if (!signature || !expectedAddress) {
       return false;
     }
     
-    // Create the message buffer that was signed
-    const msgBuffer = `0x${Buffer.from(message, "utf8").toString("hex")}`;
-    
-    // Recover the address from the signature
-    const recoveredAddress = await window.ethereum.request({
-      method: "personal_ecRecover",
-      params: [msgBuffer, signature],
-    });
-    
-    // Compare the recovered address to the expected address (case-insensitive)
-    return recoveredAddress.toLowerCase() === expectedAddress.toLowerCase();
+    try {
+      // Use ethers to recover the address from the signature
+      const recoveredAddress = ethers.verifyMessage(message, signature);
+      
+      // Compare the recovered address to the expected address (case-insensitive)
+      return recoveredAddress.toLowerCase() === expectedAddress.toLowerCase();
+    } catch (error) {
+      console.error("Ethers error verifying signature:", error);
+      return false;
+    }
   } catch (error) {
     console.error("Error verifying signature:", error);
     return false;
   }
 }
 
-// New utility function to resolve ENS names
+// Get an ethers provider (used for ENS lookups and other operations)
+export function getProvider() {
+  // If window.ethereum is available, use it
+  if (window.ethereum) {
+    try {
+      return new ethers.BrowserProvider(window.ethereum);
+    } catch (error) {
+      console.error("Error creating provider from window.ethereum:", error);
+    }
+  }
+  
+  // Fallback to a public provider (like Infura)
+  try {
+    return new ethers.JsonRpcProvider("https://mainnet.infura.io/v3/84842078b09946638c03157f83405213");
+  } catch (error) {
+    console.error("Error creating fallback provider:", error);
+    return null;
+  }
+}
+
+// Resolve ENS name using ethers
 export async function resolveEnsName(address: string): Promise<string | null> {
   try {
-    if (!window.ethereum || !address) {
-      return null;
-    }
+    if (!address) return null;
     
-    // Use the eth_call method to call the ENS reverse resolver
-    const ensName = await window.ethereum.request({
-      method: "eth_call",
-      params: [
-        {
-          to: "0x084b1c3c81545d370f3634392de611caabff8148", // ENS Reverse Resolver
-          data: `0x691f3431${address.slice(2).padStart(64, '0')}` // encoding for 'name(address)'
-        },
-        "latest"
-      ]
-    });
+    const provider = getProvider();
+    if (!provider) return null;
     
-    if (ensName && ensName !== '0x' && ensName.length > 2) {
-      // Decode the result (string)
-      const offset = parseInt(ensName.slice(2 + 64, 2 + 128), 16);
-      const length = parseInt(ensName.slice(2 + offset * 2, 2 + offset * 2 + 64), 16);
-      const nameHex = ensName.slice(2 + offset * 2 + 64, 2 + offset * 2 + 64 + length * 2);
-      
-      // Convert hex to string
-      let name = '';
-      for (let i = 0; i < nameHex.length; i += 2) {
-        name += String.fromCharCode(parseInt(nameHex.slice(i, i + 2), 16));
-      }
-      
-      return name || null;
-    }
-    return null;
+    const name = await provider.lookupAddress(address);
+    return name;
   } catch (error) {
     console.error("Error resolving ENS name:", error);
     return null;
@@ -152,7 +149,7 @@ export async function formatAddress(address: string, short: boolean = true): Pro
     : address;
 }
 
-// Create a helper function to add basic auth to URLs if needed
+// Create a helper function to add basic auth headers to URLs if needed
 export function addBasicAuthHeaders(url: string): Record<string, string> {
   const headers: Record<string, string> = {};
   

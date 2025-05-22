@@ -7,6 +7,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { formatAddress } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
+import { ethers } from 'ethers';
 
 interface ContentCardProps {
   content: Content;
@@ -99,11 +100,14 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
           description: `You are no longer following ${publisherDisplay}`
         });
       } else {
-        // Try to get ENS name for the address
-        const ensName = await window.ethereum?.request({
-          method: 'eth_lookupAddress',
-          params: [content.publisher]
-        }).catch(() => null);
+        // Try to get ENS name for the address using ethers
+        let ensName = null;
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          ensName = await provider.lookupAddress(content.publisher);
+        } catch (err) {
+          console.error("Error getting ENS name:", err);
+        }
         
         await db.followAddress(content.publisher, ensName || undefined);
         setIsFollowed(true);
