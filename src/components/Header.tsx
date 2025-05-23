@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { db } from "@/lib/db";
 import { toast } from "@/hooks/use-toast";
 import { ethers } from "ethers";
+import PodexLogo from "./PodexLogo";
 
 const Header = () => {
   const { address, isConnecting, connect, disconnect } = useWallet();
@@ -69,9 +70,9 @@ const Header = () => {
     <header className="w-full border-b border-black py-4">
       <div className="container flex justify-between items-center">
         <div className="flex items-center">
-          <h1 className="text-2xl font-bold tracking-tighter mr-8">
-            <Link to="/">PODEX</Link>
-          </h1>
+          <Link to="/" className="mr-8">
+            <PodexLogo />
+          </Link>
           <nav className="space-x-6">
             <Link to="/" className="hover:underline">Discover</Link>
             <Link to="/consumer" className="hover:underline">My Content</Link>
