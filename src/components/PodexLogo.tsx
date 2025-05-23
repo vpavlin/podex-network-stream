@@ -8,9 +8,9 @@ interface PodexLogoProps {
 const PodexLogo: React.FC<PodexLogoProps> = ({ className }) => {
   return (
     <svg 
-      width="120" 
+      width="140" 
       height="40" 
-      viewBox="0 0 120 40" 
+      viewBox="0 0 140 40" 
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
@@ -22,7 +22,7 @@ const PodexLogo: React.FC<PodexLogoProps> = ({ className }) => {
         `}
       </style>
       
-      <rect x="0" y="0" width="120" height="40" fill="none"/>
+      <rect x="0" y="0" width="140" height="40" fill="none"/>
       
       <circle className="icon-circle" cx="20" cy="20" r="15"/>
       <path className="wave" d="M10,20 Q15,15 20,20 T30,20"/>
