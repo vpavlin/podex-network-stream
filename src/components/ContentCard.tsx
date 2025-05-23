@@ -8,6 +8,7 @@ import { formatAddress } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { ethers } from 'ethers';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface ContentCardProps {
   content: Content;
@@ -131,30 +132,36 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
   const formattedDate = new Date(content.publishedAt).toLocaleDateString();
   
   // Truncate title and description for display
+  const truncatedTitle = content.title.length > 60 
+    ? `${content.title.substring(0, 57)}...` 
+    : content.title;
+    
   const truncatedDescription = content.description.length > 100 
     ? `${content.description.substring(0, 97)}...` 
     : content.description;
 
   // Now using content.id (which is the CID) for the link
   return (
-    <Link to={`/content/${content.id}`} className="block border border-black hover:bg-gray-50">
-      <div className="aspect-video bg-gray-100 relative">
-        {content.thumbnail ? (
-          <img 
-            src={content.thumbnail} 
-            alt={content.title} 
-            className="w-full h-full object-cover" 
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-black text-white">
-            {content.type === 'audio' ? 'AUDIO' : 'VIDEO'}
-          </div>
-        )}
+    <Link to={`/content/${content.id}`} className="block border border-black hover:bg-gray-50 h-full flex flex-col">
+      <div className="relative">
+        <AspectRatio ratio={16 / 9}>
+          {content.thumbnail ? (
+            <img 
+              src={content.thumbnail} 
+              alt={content.title} 
+              className="w-full h-full object-cover" 
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-black text-white">
+              {content.type === 'audio' ? 'AUDIO' : 'VIDEO'}
+            </div>
+          )}
+        </AspectRatio>
         <div className="absolute top-2 right-2 bg-black text-white text-xs px-2 py-1 uppercase">{content.type}</div>
       </div>
-      <div className="p-4">
+      <div className="p-4 flex flex-col flex-grow">
         <div className="flex justify-between items-start mb-2">
-          <h3 className="font-bold">{content.title}</h3>
+          <h3 className="font-bold line-clamp-2 h-12" title={content.title}>{truncatedTitle}</h3>
           <div className="flex space-x-2">
             <button 
               onClick={handleLike}
@@ -172,8 +179,10 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
             </button>
           </div>
         </div>
-        <p className="text-sm text-gray-700 mb-2">{truncatedDescription}</p>
-        <div className="flex justify-between items-center text-xs">
+        <p className="text-sm text-gray-700 mb-4 flex-grow h-14 line-clamp-3" title={content.description}>
+          {truncatedDescription || "No description available"}
+        </p>
+        <div className="flex justify-between items-center text-xs mt-auto">
           <div className="flex items-center gap-1 text-gray-500">
             <span>By: {publisherDisplay}</span>
             {content.publisher && address && (
