@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Content, db } from '@/lib/db';
 import ContentCard from '@/components/ContentCard';
@@ -199,8 +200,8 @@ const Discovery = () => {
       </div>
       
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array(8).fill(0).map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array(6).fill(0).map((_, i) => (
             <div key={i} className="border border-gray-200">
               <Skeleton className="aspect-video w-full" />
               <div className="p-4">
@@ -254,7 +255,7 @@ const Discovery = () => {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {displayContent.map((content) => (
             <div key={content.id} className="relative">
               <ContentCard content={content} />
