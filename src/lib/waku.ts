@@ -78,7 +78,8 @@ export const getDispatcher = async (): Promise<Dispatcher> => {
             cid: announcement.contentCid,
             publisher: announcement.publisher,
             publishedAt: announcement.publishedAt,
-            signature: announcement.signature
+            signature: announcement.signature,
+            thumbnailCid: announcement.thumbnailCid
           };
 
           if (isFollowed) {

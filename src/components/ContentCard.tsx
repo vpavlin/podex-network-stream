@@ -147,9 +147,9 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
     <Link to={`/content/${content.id}`} className="block border border-black hover:bg-gray-50 h-full flex flex-col">
       <div className="relative">
         <AspectRatio ratio={16 / 9}>
-          {content.thumbnail ? (
+          {content.thumbnailCid ? (
             <img 
-            src={getContentStreamUrl(content.thumbnail)} 
+            src={getContentStreamUrl(content.thumbnailCid)} 
               alt={content.title} 
               className="w-full h-full object-cover" 
             />
