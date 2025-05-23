@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { ethers } from 'ethers';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { useCodexApi } from '@/lib/codex';
 
 interface ContentCardProps {
   content: Content;
@@ -17,6 +18,7 @@ interface ContentCardProps {
 
 const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
   const { address } = useWallet();
+  const { getContentStreamUrl } = useCodexApi();
   const [isLiked, setIsLiked] = useState(false);
   const [isWatchLater, setIsWatchLater] = useState(false);
   const [publisherDisplay, setPublisherDisplay] = useState<string>('');
@@ -147,7 +149,7 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
         <AspectRatio ratio={16 / 9}>
           {content.thumbnail ? (
             <img 
-              src={content.thumbnail} 
+            src={getContentStreamUrl(content.thumbnail)} 
               alt={content.title} 
               className="w-full h-full object-cover" 
             />
