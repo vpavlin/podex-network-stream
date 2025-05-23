@@ -72,7 +72,7 @@ export const useCodexApi = () => {
     const result = res.data as Response
     const manifest:PodexManifest = await result.json()
 
-    return {...manifest, id: cid, url: getContentStreamUrl(manifest.contentCid)}
+    return {...manifest, id: cid, cid: manifest.contentCid,  url: getContentStreamUrl(manifest.contentCid)}
   }
 
   // Check if content exists in the network with rate limiting and retries
