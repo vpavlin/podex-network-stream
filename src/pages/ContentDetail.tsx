@@ -166,9 +166,28 @@ const ContentDetail = () => {
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold">{content.title}</h1>
               </div>
+              <div className="flex items-center mt-2 text-sm text-gray-600">
+            <span>Published by {publisherDisplay}</span>
+            <span className="mx-2">•</span>
+            {signatureVerified !== null && (
+                  signatureVerified ? (
+                    <div className="flex items-center text-green-600" title="Signature verified">
+                      <ShieldCheck size={16} />
+                      <span className="text-xs ml-1">Verified</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-red-600" title="Signature could not be verified">
+                      <ShieldAlert size={16} />
+                      <span className="text-xs ml-1">Not verified</span>
+                    </div>
+                  )
+                )}
+            <span className="mx-2">•</span>
+            <span>{new Date(content.publishedAt).toLocaleDateString()}</span>
+          </div>
             </div>
             
-            <div className="flex flex-col space-y-4">
+            <div className="flex flex-col min-w-fit space-y-4">
               <button 
                 onClick={handleLike}
                 className={`flex items-center space-x-1 ${isLiked ? 'text-black' : 'text-gray-600'}`}
@@ -194,27 +213,10 @@ const ContentDetail = () => {
                 <span>Download</span>
               </button>
             </div>
+          
           </div>
           
-          <div className="flex items-center mt-2 text-sm text-gray-600">
-            <span>Published by {publisherDisplay}</span>
-            <span className="mx-2">•</span>
-            {signatureVerified !== null && (
-                  signatureVerified ? (
-                    <div className="flex items-center text-green-600" title="Signature verified">
-                      <ShieldCheck size={16} />
-                      <span className="text-xs ml-1">Verified</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-red-600" title="Signature could not be verified">
-                      <ShieldAlert size={16} />
-                      <span className="text-xs ml-1">Not verified</span>
-                    </div>
-                  )
-                )}
-            <span className="mx-2">•</span>
-            <span>{new Date(content.publishedAt).toLocaleDateString()}</span>
-          </div>
+          
           
           <hr className="my-4 border-black" />
           

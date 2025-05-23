@@ -18,7 +18,7 @@ interface ContentCardProps {
 
 const ContentCard: React.FC<ContentCardProps> = ({ content, onPlay }) => {
   const { address } = useWallet();
-  const { getContentStreamUrl } = useCodexApi();
+  const { getContentStreamUrl, checkContentAvailability } = useCodexApi();
   const [isLiked, setIsLiked] = useState(false);
   const [isWatchLater, setIsWatchLater] = useState(false);
   const [publisherDisplay, setPublisherDisplay] = useState<string>('');
