@@ -36,7 +36,12 @@ export const useCodexApi = () => {
       // Create a sanitized filename for the Content-Disposition header
       const sanitizedFilename = sanitizeFilename(file.name);
 
-      const metadata = { filename: sanitizedFilename, mimetype: file.type };
+      let ftype = file.type
+      if (file.type == "audio/m4a" || file.type == "audio/x-m4a") {
+        ftype = "audio/mp4"
+      }
+
+      const metadata = { filename: sanitizedFilename, mimetype: ftype };
 
       const stategy = new BrowserUploadStategy(file, undefined, metadata);
 
